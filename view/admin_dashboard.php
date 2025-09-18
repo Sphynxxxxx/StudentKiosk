@@ -1,50 +1,94 @@
 <?php
-session_start();
+// Include database configuration
 require_once '../config/database.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'administrator') {
-    header('Location: login.php');
-    exit();
-}
+// Get statistics
+$stats = [];
 
-$database = new Database();
-$pdo = $database->connect();
+// Total users by role
+$stmt = $pdo->query("SELECT role, COUNT(*) as count FROM users GROUP BY role");
+$user_stats = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
-// Get dashboard statistics
-try {
-    // Count total students
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'student'");
-    $stmt->execute();
-    $totalStudents = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+$stats['total_students'] = $user_stats['student'] ?? 0;
+$stats['total_faculty'] = $user_stats['faculty'] ?? 0;
+$stats['total_admins'] = $user_stats['administrator'] ?? 0;
 
-    // Count total faculty
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'faculty'");
-    $stmt->execute();
-    $totalFaculty = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Total courses
+$stmt = $pdo->query("SELECT COUNT(*) FROM courses");
+$stats['total_courses'] = $stmt->fetchColumn();
 
-    // Count total courses
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM courses");
-    $stmt->execute();
-    $totalCourses = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Total departments
+$stmt = $pdo->query("SELECT COUNT(*) FROM departments");
+$stats['total_departments'] = $stmt->fetchColumn();
 
-    // Count total departments
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM departments");
-    $stmt->execute();
-    $totalDepartments = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Active academic year
+$stmt = $pdo->query("SELECT CONCAT(year_start, '-', year_end, ' (', semester, ' Semester)') FROM academic_years WHERE is_active = 1 LIMIT 1");
+$stats['active_year'] = $stmt->fetchColumn() ?: 'No active year';
 
-    // Count pending appeals
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM grade_appeals WHERE status = 'pending'");
-    $stmt->execute();
-    $pendingAppeals = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Recent enrollments (last 7 days)
+$stmt = $pdo->query("SELECT COUNT(*) FROM enrollments WHERE enrollment_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+$stats['recent_enrollments'] = $stmt->fetchColumn();
 
-    // Count active enrollments
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM enrollments WHERE status = 'enrolled'");
-    $stmt->execute();
-    $activeEnrollments = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+// Pending grade appeals
+$stmt = $pdo->query("SELECT COUNT(*) FROM grade_appeals WHERE status = 'pending'");
+$stats['pending_appeals'] = $stmt->fetchColumn();
 
-} catch(PDOException $e) {
-    $totalStudents = $totalFaculty = $totalCourses = $totalDepartments = $pendingAppeals = $activeEnrollments = 0;
-}
+// Get recent activities
+$recent_activities = [];
+
+// Recent user registrations
+$stmt = $pdo->prepare("
+    SELECT 
+        CONCAT(first_name, ' ', last_name) as name, 
+        role, 
+        created_at,
+        'user_registered' as activity_type
+    FROM users 
+    ORDER BY created_at DESC 
+    LIMIT 5
+");
+$stmt->execute();
+$recent_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Recent grade appeals
+$stmt = $pdo->prepare("
+    SELECT 
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        ga.status,
+        ga.submitted_at,
+        'grade_appeal' as activity_type
+    FROM grade_appeals ga
+    JOIN users u ON ga.student_id = u.id
+    ORDER BY ga.submitted_at DESC
+    LIMIT 5
+");
+$stmt->execute();
+$recent_appeals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Combine activities
+$recent_activities = array_merge($recent_users, $recent_appeals);
+usort($recent_activities, function($a, $b) {
+    $timeA = $a['created_at'] ?? $a['submitted_at'];
+    $timeB = $b['created_at'] ?? $b['submitted_at'];
+    return strtotime($timeB) - strtotime($timeA);
+});
+$recent_activities = array_slice($recent_activities, 0, 10);
+
+// Get department statistics
+$stmt = $pdo->prepare("
+    SELECT 
+        d.name,
+        d.code,
+        COUNT(c.id) as course_count,
+        COUNT(DISTINCT cs.faculty_id) as faculty_count
+    FROM departments d
+    LEFT JOIN courses c ON d.id = c.department_id
+    LEFT JOIN class_sections cs ON c.id = cs.course_id
+    GROUP BY d.id, d.name, d.code
+    ORDER BY d.name
+");
+$stmt->execute();
+$department_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -52,187 +96,172 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrator Dashboard - ISATU Student Kiosk System</title>
-    <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
+    <title>Admin Dashboard - ISATU Kiosk System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="../assets/css/admin_dashboard.css" rel="stylesheet">
+        
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- Sidebar -->
+    <div class="admin-layout">
+        
         <?php include '../includes/sidebar.php'; ?>
         
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Header -->
             <?php include '../includes/header.php'; ?>
-            
-            <!-- Dashboard Content -->
+
             <div class="dashboard-content">
-                <div class="dashboard-header">
-                    <h1>Administrator Dashboard</h1>
-                    <p>Welcome back, <?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?>!</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Active Academic Year:</strong> <?php echo htmlspecialchars($stats['active_year']); ?>
                 </div>
 
-                <!-- Statistics Cards -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-users"></i>
+                        <div class="stat-card-header">
+                            <div class="stat-icon primary">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <h3><?php echo $totalStudents; ?></h3>
-                            <p>Total Students</p>
-                        </div>
+                        <div class="stat-value"><?php echo number_format($stats['total_students']); ?></div>
+                        <div class="stat-label">Total Students</div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon faculty">
-                            <i class="fas fa-chalkboard-teacher"></i>
+                    <div class="stat-card success">
+                        <div class="stat-card-header">
+                            <div class="stat-icon success">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <h3><?php echo $totalFaculty; ?></h3>
-                            <p>Total Faculty</p>
-                        </div>
+                        <div class="stat-value"><?php echo number_format($stats['total_faculty']); ?></div>
+                        <div class="stat-label">Faculty Members</div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon courses">
-                            <i class="fas fa-book"></i>
+                    <div class="stat-card warning">
+                        <div class="stat-card-header">
+                            <div class="stat-icon warning">
+                                <i class="fas fa-book"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <h3><?php echo $totalCourses; ?></h3>
-                            <p>Total Courses</p>
-                        </div>
+                        <div class="stat-value"><?php echo number_format($stats['total_courses']); ?></div>
+                        <div class="stat-label">Available Courses</div>
                     </div>
 
-                    <div class="stat-card">
-                        <div class="stat-icon departments">
-                            <i class="fas fa-building"></i>
+                    <div class="stat-card danger">
+                        <div class="stat-card-header">
+                            <div class="stat-icon danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <h3><?php echo $totalDepartments; ?></h3>
-                            <p>Departments</p>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-icon enrollments">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3><?php echo $activeEnrollments; ?></h3>
-                            <p>Active Enrollments</p>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-icon appeals">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3><?php echo $pendingAppeals; ?></h3>
-                            <p>Pending Appeals</p>
-                        </div>
+                        <div class="stat-value"><?php echo number_format($stats['pending_appeals']); ?></div>
+                        <div class="stat-label">Pending Appeals</div>
                     </div>
                 </div>
 
-                <!-- Dashboard Sections -->
-                <div class="dashboard-sections">
-                    <!-- Large Section -->
-                    <div class="large-section">
-                        <div class="section-header">
-                            <h2>System Overview</h2>
+                <div class="content-grid">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-clock"></i> Recent Activities
+                            </h3>
                         </div>
-                        <div class="section-content">
-                            <div class="overview-grid">
-                                <div class="overview-item">
-                                    <h4>Current Academic Year</h4>
-                                    <p>2024-2025 (1st Semester)</p>
-                                </div>
-                                <div class="overview-item">
-                                    <h4>System Status</h4>
-                                    <span class="status-badge active">Active</span>
-                                </div>
-                                <div class="overview-item">
-                                    <h4>Last Backup</h4>
-                                    <p><?php echo date('M d, Y H:i'); ?></p>
-                                </div>
+                        
+                        <?php if (empty($recent_activities)): ?>
+                            <div style="text-align: center; padding: 2rem; color: var(--gray-600);">
+                                <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <p>No recent activities found</p>
                             </div>
-                            
-                            <div class="quick-actions">
-                                <h4>Quick Actions</h4>
-                                <div class="action-buttons">
-                                    <a href="manage_users.php" class="btn btn-primary">
-                                        <i class="fas fa-users"></i> Manage Users
-                                    </a>
-                                    <a href="system_settings.php" class="btn btn-secondary">
-                                        <i class="fas fa-cog"></i> System Settings
-                                    </a>
-                                    <a href="backup.php" class="btn btn-success">
-                                        <i class="fas fa-database"></i> Backup Data
-                                    </a>
+                        <?php else: ?>
+                            <?php foreach ($recent_activities as $activity): ?>
+                                <div class="activity-item">
+                                    <div class="activity-icon <?php echo $activity['activity_type'] == 'user_registered' ? 'primary' : 'warning'; ?>">
+                                        <i class="fas fa-<?php echo $activity['activity_type'] == 'user_registered' ? 'user-plus' : 'exclamation-triangle'; ?>"></i>
+                                    </div>
+                                    <div class="activity-content">
+                                        <div class="activity-title">
+                                            <?php if ($activity['activity_type'] == 'user_registered'): ?>
+                                                New <?php echo ucfirst($activity['role']); ?>: <?php echo htmlspecialchars($activity['name']); ?>
+                                            <?php else: ?>
+                                                Grade Appeal <?php echo ucfirst($activity['status']); ?>: <?php echo htmlspecialchars($activity['name']); ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="activity-time">
+                                            <?php 
+                                            $time = $activity['created_at'] ?? $activity['submitted_at'];
+                                            echo date('M j, Y g:i A', strtotime($time)); 
+                                            ?>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
 
-                    <!-- Two smaller sections -->
-                    <div class="small-sections">
-                        <div class="small-section">
-                            <div class="section-header">
-                                <h3>Recent Activities</h3>
-                            </div>
-                            <div class="section-content">
-                                <div class="activity-list">
-                                    <div class="activity-item">
-                                        <i class="fas fa-user-plus"></i>
-                                        <div class="activity-details">
-                                            <p>New student registered</p>
-                                            <small>2 hours ago</small>
-                                        </div>
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-building"></i> Departments
+                            </h3>
+                        </div>
+                        
+                        <?php foreach ($department_stats as $dept): ?>
+                            <div class="department-item">
+                                <div class="department-info">
+                                    <h4><?php echo htmlspecialchars($dept['name']); ?></h4>
+                                    <small style="color: var(--gray-600);">
+                                        <?php echo htmlspecialchars($dept['code']); ?>
+                                    </small>
+                                </div>
+                                <div class="department-stats">
+                                    <div class="department-stat">
+                                        <strong><?php echo $dept['course_count']; ?></strong>
+                                        <small>Courses</small>
                                     </div>
-                                    <div class="activity-item">
-                                        <i class="fas fa-file-alt"></i>
-                                        <div class="activity-details">
-                                            <p>Grade appeal submitted</p>
-                                            <small>4 hours ago</small>
-                                        </div>
-                                    </div>
-                                    <div class="activity-item">
-                                        <i class="fas fa-book"></i>
-                                        <div class="activity-details">
-                                            <p>New course added</p>
-                                            <small>1 day ago</small>
-                                        </div>
+                                    <div class="department-stat">
+                                        <strong><?php echo $dept['faculty_count']; ?></strong>
+                                        <small>Faculty</small>
                                     </div>
                                 </div>
                             </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-pie"></i> Quick Statistics
+                        </h3>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <!--<div class="stat-card">
+                            <div class="stat-card-header">
+                                <div class="stat-icon primary">
+                                    <i class="fas fa-user-shield"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value"><?php echo number_format($stats['total_admins']); ?></div>
+                            <div class="stat-label">Administrators</div>
+                        </div>-->
+
+                        <div class="stat-card success">
+                            <div class="stat-card-header">
+                                <div class="stat-icon success">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value"><?php echo number_format($stats['total_departments']); ?></div>
+                            <div class="stat-label">Departments</div>
                         </div>
 
-                        <div class="small-section">
-                            <div class="section-header">
-                                <h3>System Alerts</h3>
-                            </div>
-                            <div class="section-content">
-                                <div class="alerts-list">
-                                    <?php if($pendingAppeals > 0): ?>
-                                    <div class="alert alert-warning">
-                                        <i class="fas fa-exclamation-triangle"></i>
-                                        <p><?php echo $pendingAppeals; ?> pending grade appeals</p>
-                                    </div>
-                                    <?php endif; ?>
-                                    
-                                    <div class="alert alert-info">
-                                        <i class="fas fa-info-circle"></i>
-                                        <p>System running normally</p>
-                                    </div>
-                                    
-                                    <div class="alert alert-success">
-                                        <i class="fas fa-check-circle"></i>
-                                        <p>Database backup completed</p>
-                                    </div>
+                        <div class="stat-card warning">
+                            <div class="stat-card-header">
+                                <div class="stat-icon warning">
+                                    <i class="fas fa-user-plus"></i>
                                 </div>
                             </div>
+                            <div class="stat-value"><?php echo number_format($stats['recent_enrollments']); ?></div>
+                            <div class="stat-label">New Enrollments (7 days)</div>
                         </div>
                     </div>
                 </div>

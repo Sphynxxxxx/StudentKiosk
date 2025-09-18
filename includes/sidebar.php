@@ -5,6 +5,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
 <div class="sidebar">
     <div class="sidebar-header">
+        <div class="sidebar-logo">
+            <img src="../assets/images/ISATU Logo.png" alt="ISATU Logo">
+        </div>
         <h2>Administrator</h2>
         <p>ISATU Kiosk System</p>
     </div>
@@ -117,6 +120,48 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </div>
 
 <style>
+/* Sidebar Logo Styles */
+.sidebar-logo {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+}
+
+.sidebar-logo img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: white;
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+}
+
+
+/* Enhanced Sidebar Header */
+.sidebar-header {
+    text-align: center;
+    padding: 1.5rem 1rem 2rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 1rem;
+}
+
+.sidebar-header h2 {
+    color: #fbbf24;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.sidebar-header p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
 .menu-divider {
     height: 1px;
     background: rgba(255, 255, 255, 0.2);
@@ -135,7 +180,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 }
 
 .sidebar-menu {
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
@@ -158,8 +203,25 @@ $current_page = basename($_SERVER['PHP_SELF']);
     background: rgba(255, 255, 255, 0.5);
 }
 
-/* Mobile toggle button */
+/* Mobile Responsive */
 @media (max-width: 768px) {
+    .sidebar-logo img {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .sidebar-header {
+        padding: 1rem;
+    }
+    
+    .sidebar-header h2 {
+        font-size: 1.2rem;
+    }
+    
+    .sidebar-menu {
+        max-height: calc(100vh - 220px);
+    }
+    
     .sidebar-toggle {
         display: block;
         position: fixed;
@@ -177,6 +239,30 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     .sidebar-toggle:hover {
         background: var(--secondary-blue);
+    }
+}
+
+/* Additional Professional Styling */
+@media (min-width: 769px) {
+    .sidebar-logo img {
+        transition: all 0.3s ease;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+    }
+    
+    .sidebar-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background: #fbbf24;
+        border-radius: 2px;
+    }
+    
+    .sidebar-header {
+        position: relative;
     }
 }
 </style>

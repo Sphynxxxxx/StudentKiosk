@@ -1,197 +1,176 @@
 <?php
-// Ensure session is started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Get current page name for dynamic header content
+$current_page = basename($_SERVER['PHP_SELF'], '.php');
 
-// Get user information
-$user_name = isset($_SESSION['first_name']) && isset($_SESSION['last_name']) 
-    ? $_SESSION['first_name'] . ' ' . $_SESSION['last_name'] 
-    : 'Administrator';
-$user_role = isset($_SESSION['role']) ? ucfirst($_SESSION['role']) : 'Administrator';
-$user_initials = isset($_SESSION['first_name']) && isset($_SESSION['last_name']) 
-    ? strtoupper(substr($_SESSION['first_name'], 0, 1) . substr($_SESSION['last_name'], 0, 1))
-    : 'AD';
-
-// Get current page title
-$page_titles = [
-    'admin_dashboard.php' => 'Administrator Dashboard',
-    'manage_faculty.php' => 'Manage Faculty',
-    'manage_student.php' => 'Manage Students',
-    'manage_grades.php' => 'Manage Grades',
-    'generate_report.php' => 'Generate Reports',
-    'appeal_reports.php' => 'Grade Appeal Reports',
-    'rankings.php' => 'Student Rankings',
-    'manage_courses.php' => 'Manage Courses',
-    'manage_departments.php' => 'Manage Departments',
-    'academic_years.php' => 'Academic Years',
-    'system_settings.php' => 'System Settings',
-    'user_logs.php' => 'User Activity Logs',
-    'profile.php' => 'User Profile'
+// Define page titles and descriptions
+$page_info = [
+    'admin_dashboard' => [
+        'title' => 'Dashboard',
+        'icon' => 'fas fa-tachometer-alt',
+        'description' => 'Welcome to the ISATU Kiosk System Administration Panel'
+    ],
+    'manage_faculty' => [
+        'title' => 'Manage Faculty',
+        'icon' => 'fas fa-chalkboard-teacher',
+        'description' => 'Add, edit, and manage faculty members'
+    ],
+    'manage_student' => [
+        'title' => 'Manage Students',
+        'icon' => 'fas fa-user-graduate',
+        'description' => 'Add, edit, and manage student records'
+    ],
+    'manage_grades' => [
+        'title' => 'Manage Grades',
+        'icon' => 'fas fa-clipboard-list',
+        'description' => 'View and manage student grades'
+    ],
+    'generate_report' => [
+        'title' => 'Generate Reports',
+        'icon' => 'fas fa-chart-bar',
+        'description' => 'Create and download system reports'
+    ],
+    'appeal_reports' => [
+        'title' => 'Appeal Reports',
+        'icon' => 'fas fa-exclamation-triangle',
+        'description' => 'Review and manage grade appeals'
+    ],
+    'rankings' => [
+        'title' => 'Rankings',
+        'icon' => 'fas fa-trophy',
+        'description' => 'View student rankings and academic performance'
+    ],
+    'manage_courses' => [
+        'title' => 'Manage Courses',
+        'icon' => 'fas fa-book',
+        'description' => 'Add, edit, and manage course offerings'
+    ],
+    'manage_departments' => [
+        'title' => 'Departments',
+        'icon' => 'fas fa-building',
+        'description' => 'Manage academic departments'
+    ],
+    'academic_years' => [
+        'title' => 'Academic Years',
+        'icon' => 'fas fa-calendar-alt',
+        'description' => 'Manage academic year settings'
+    ],
+    'system_settings' => [
+        'title' => 'System Settings',
+        'icon' => 'fas fa-cog',
+        'description' => 'Configure system preferences and settings'
+    ],
+    'user_logs' => [
+        'title' => 'User Logs',
+        'icon' => 'fas fa-history',
+        'description' => 'View system activity and user logs'
+    ],
+    'profile' => [
+        'title' => 'Profile',
+        'icon' => 'fas fa-user',
+        'description' => 'Manage your account settings'
+    ]
 ];
 
-$current_page = basename($_SERVER['PHP_SELF']);
-$page_title = isset($page_titles[$current_page]) ? $page_titles[$current_page] : 'ISATU Kiosk System';
+// Get current page info or default
+$current_info = $page_info[$current_page] ?? [
+    'title' => 'Administration',
+    'icon' => 'fas fa-cog',
+    'description' => 'ISATU Kiosk System Administration'
+];
 ?>
 
-<div class="header">
-    <!-- Mobile menu toggle -->
+<div class="dashboard-header">
+    <!-- Mobile menu toggle button -->
     <button class="sidebar-toggle" onclick="toggleSidebar()">
         <i class="fas fa-bars"></i>
     </button>
     
-    <div class="header-left">
-        <h1><?php echo htmlspecialchars($page_title); ?></h1>
-        <div class="breadcrumb">
-            <span class="current-time" id="currentTime"></span>
-        </div>
+    <div class="header-content">
+        <h1>
+            <i class="<?php echo $current_info['icon']; ?>"></i> 
+            <?php echo htmlspecialchars($current_info['title']); ?>
+        </h1>
+        <p><?php echo htmlspecialchars($current_info['description']); ?></p>
     </div>
     
-    <div class="header-right">
+    <div class="header-actions">
         <!-- Notifications -->
-        <div class="notifications-container">
+        <div class="notification-dropdown">
             <button class="notification-btn" onclick="toggleNotifications()">
                 <i class="fas fa-bell"></i>
-                <span class="notification-badge" id="notificationCount">3</span>
+                <span class="notification-badge">3</span>
             </button>
-            
-            <div class="notifications-dropdown" id="notificationsDropdown">
-                <div class="notifications-header">
+            <div class="notification-dropdown-content" id="notificationDropdown">
+                <div class="notification-header">
                     <h4>Notifications</h4>
-                    <button class="mark-all-read" onclick="markAllAsRead()">Mark all as read</button>
                 </div>
-                
-                <div class="notifications-footer">
-                    <a href="all_notifications.php">View all notifications</a>
+                <div class="notification-item">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <div>
+                        <strong>New Grade Appeal</strong>
+                        <small>2 minutes ago</small>
+                    </div>
+                </div>
+                <div class="notification-item">
+                    <i class="fas fa-user-plus text-success"></i>
+                    <div>
+                        <strong>New Faculty Registration</strong>
+                        <small>15 minutes ago</small>
+                    </div>
+                </div>
+                <div class="notification-item">
+                    <i class="fas fa-file-alt text-info"></i>
+                    <div>
+                        <strong>Report Generated</strong>
+                        <small>1 hour ago</small>
+                    </div>
+                </div>
+                <div class="notification-footer">
+                    <a href="#" class="view-all">View All Notifications</a>
                 </div>
             </div>
         </div>
         
-        <!-- User Profile -->
-        <div class="user-profile" onclick="toggleUserMenu()">
-            <div class="user-avatar">
-                <?php echo htmlspecialchars($user_initials); ?>
-            </div>
-            <div class="user-info">
-                <h4><?php echo htmlspecialchars($user_name); ?></h4>
-                <p><?php echo htmlspecialchars($user_role); ?></p>
-            </div>
-            <i class="fas fa-chevron-down user-dropdown-arrow"></i>
-            
-            <!-- User Dropdown Menu -->
-            <div class="user-dropdown-menu" id="userDropdownMenu">
-                <div class="user-dropdown-header">
-                    <div class="user-avatar-large">
-                        <?php echo htmlspecialchars($user_initials); ?>
-                    </div>
-                    <div class="user-details">
-                        <h4><?php echo htmlspecialchars($user_name); ?></h4>
-                        <p><?php echo htmlspecialchars($user_role); ?></p>
-                        <small><?php echo isset($_SESSION['email']) ? htmlspecialchars($_SESSION['email']) : ''; ?></small>
-                    </div>
+        <!-- User dropdown -->
+        <div class="user-dropdown">
+            <button class="user-btn" onclick="toggleUserMenu()">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
                 </div>
-                
-                <div class="user-dropdown-divider"></div>
-                
-                <ul class="user-dropdown-list">
-                    <li><a href="profile.php"><i class="fas fa-user"></i> My Profile</a></li>
-                    <li><a href="account_settings.php"><i class="fas fa-cog"></i> Account Settings</a></li>
-                    <li><a href="activity_log.php"><i class="fas fa-history"></i> Activity Log</a></li>
-                    <li><a href="help.php"><i class="fas fa-question-circle"></i> Help & Support</a></li>
-                </ul>
-                
-                <div class="user-dropdown-divider"></div>
-                
-                <div class="user-dropdown-footer">
-                    <a href="logout.php" class="logout-btn">
-                        <i class="fas fa-sign-out-alt"></i> Logout
-                    </a>
+                <div class="user-info">
+                    <span class="user-name">Administrator</span>
+                    <small class="user-role">System Admin</small>
                 </div>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="user-dropdown-content" id="userDropdown">
+                <a href="profile.php">
+                    <i class="fas fa-user"></i> Profile
+                </a>
+                <a href="system_settings.php">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+                <div class="dropdown-divider"></div>
+                <a href="logout.php" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-// Update current time
-function updateCurrentTime() {
-    const now = new Date();
-    const options = {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    };
-    document.getElementById('currentTime').textContent = now.toLocaleDateString('en-US', options);
-}
-
-// Toggle sidebar for mobile
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.classList.toggle('open');
-}
-
-// Toggle notifications dropdown
-function toggleNotifications() {
-    const dropdown = document.getElementById('notificationsDropdown');
-    dropdown.classList.toggle('show');
-    
-    // Close user menu if open
-    const userMenu = document.getElementById('userDropdownMenu');
-    userMenu.classList.remove('show');
-}
-
-// Toggle user dropdown menu
-function toggleUserMenu() {
-    const dropdown = document.getElementById('userDropdownMenu');
-    dropdown.classList.toggle('show');
-    
-    // Close notifications if open
-    const notifications = document.getElementById('notificationsDropdown');
-    notifications.classList.remove('show');
-}
-
-// Mark all notifications as read
-function markAllAsRead() {
-    const notifications = document.querySelectorAll('.notification-item.unread');
-    notifications.forEach(notification => {
-        notification.classList.remove('unread');
-    });
-    
-    // Update notification count
-    document.getElementById('notificationCount').textContent = '0';
-    document.getElementById('notificationCount').style.display = 'none';
-}
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(event) {
-    const notificationsBtn = document.querySelector('.notification-btn');
-    const notificationsDropdown = document.getElementById('notificationsDropdown');
-    const userProfile = document.querySelector('.user-profile');
-    const userDropdown = document.getElementById('userDropdownMenu');
-    
-    // Close notifications dropdown
-    if (!notificationsBtn.contains(event.target) && !notificationsDropdown.contains(event.target)) {
-        notificationsDropdown.classList.remove('show');
-    }
-    
-    // Close user dropdown
-    if (!userProfile.contains(event.target)) {
-        userDropdown.classList.remove('show');
-    }
-});
-
-// Initialize
-updateCurrentTime();
-setInterval(updateCurrentTime, 1000);
-</script>
-
 <style>
-.header {
-    position: relative;
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .sidebar-toggle {
@@ -199,357 +178,385 @@ setInterval(updateCurrentTime, 1000);
     background: var(--primary-blue);
     color: white;
     border: none;
-    padding: 0.5rem;
-    border-radius: 5px;
+    padding: 0.75rem;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 1.2rem;
+    transition: all 0.2s ease;
 }
 
-.breadcrumb {
-    margin-top: 0.25rem;
+.sidebar-toggle:hover {
+    background: var(--secondary-blue);
+    transform: scale(1.05);
 }
 
-.current-time {
-    color: var(--gray);
-    font-size: 0.9rem;
-    font-weight: 500;
+.header-content h1 {
+    margin: 0;
+    color: var(--primary-blue);
+    font-size: 1.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.header-right {
-    position: relative;
+.header-content p {
+    margin: 0.5rem 0 0 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 /* Notifications */
-.notifications-container {
+.notification-dropdown {
     position: relative;
 }
 
 .notification-btn {
+    position: relative;
     background: none;
     border: none;
-    color: var(--gray);
-    font-size: 1.2rem;
+    color: #6b7280;
+    font-size: 1.3rem;
     cursor: pointer;
     padding: 0.5rem;
-    border-radius: 50%;
-    position: relative;
-    transition: all 0.3s ease;
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 .notification-btn:hover {
-    background: var(--light-gray);
     color: var(--primary-blue);
+    background: #f3f4f6;
 }
 
 .notification-badge {
     position: absolute;
-    top: -5px;
-    right: -5px;
-    background: var(--danger);
+    top: 0;
+    right: 0;
+    background: #ef4444;
     color: white;
     font-size: 0.7rem;
+    font-weight: bold;
     padding: 0.2rem 0.4rem;
-    border-radius: 50%;
-    min-width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.notifications-dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
     border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    width: 350px;
-    max-height: 400px;
-    overflow: hidden;
+    min-width: 18px;
+    text-align: center;
+}
+
+.notification-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    min-width: 320px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e5e7eb;
     z-index: 1000;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
+    margin-top: 0.5rem;
 }
 
-.notifications-dropdown.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
+.notification-dropdown-content.show {
+    display: block;
 }
 
-.notifications-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--primary-blue);
-    color: white;
+.notification-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.notifications-header h4 {
+.notification-header h4 {
     margin: 0;
+    color: var(--primary-blue);
     font-size: 1.1rem;
-}
-
-.mark-all-read {
-    background: none;
-    border: none;
-    color: var(--golden-yellow);
-    font-size: 0.8rem;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-.notifications-list {
-    max-height: 250px;
-    overflow-y: auto;
 }
 
 .notification-item {
     display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    transition: all 0.2s ease;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s ease;
 }
 
 .notification-item:hover {
-    background: var(--light-gray);
+    background: #f9fafb;
 }
 
-.notification-item.unread {
-    background: var(--light-yellow);
-    border-left: 3px solid var(--golden-yellow);
+.notification-item:last-of-type {
+    border-bottom: none;
 }
 
 .notification-item i {
-    font-size: 1.1rem;
-    margin-top: 0.2rem;
+    font-size: 1.2rem;
+    width: 20px;
+    text-align: center;
 }
 
-.notification-content p {
-    margin: 0;
+.notification-item div {
+    flex: 1;
+}
+
+.notification-item strong {
+    display: block;
+    color: #374151;
     font-size: 0.9rem;
-    color: var(--dark-gray);
 }
 
-.notification-content small {
-    color: var(--gray);
+.notification-item small {
+    color: #6b7280;
     font-size: 0.8rem;
 }
 
-.notifications-footer {
-    padding: 0.75rem 1rem;
+.notification-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
     text-align: center;
-    border-top: 1px solid var(--border-color);
-    background: var(--light-gray);
 }
 
-.notifications-footer a {
+.view-all {
     color: var(--primary-blue);
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 500;
 }
 
-/* User Profile Dropdown */
-.user-profile {
+.view-all:hover {
+    text-decoration: underline;
+}
+
+/* User dropdown */
+.user-dropdown {
     position: relative;
-    cursor: pointer;
 }
 
-.user-dropdown-arrow {
-    font-size: 0.8rem;
-    margin-left: 0.5rem;
-    transition: transform 0.3s ease;
-}
-
-.user-profile:hover .user-dropdown-arrow {
-    transform: rotate(180deg);
-}
-
-.user-dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    width: 280px;
-    z-index: 1000;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-}
-
-.user-dropdown-menu.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.user-dropdown-header {
+.user-btn {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: var(--primary-blue);
-    color: white;
-    border-radius: 10px 10px 0 0;
+    gap: 0.75rem;
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.user-avatar-large {
-    width: 50px;
-    height: 50px;
-    background: var(--golden-yellow);
-    color: var(--primary-blue);
+.user-btn:hover {
+    background: #f3f4f6;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-blue);
+    color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.user-details h4 {
-    margin: 0 0 0.25rem 0;
     font-size: 1.1rem;
 }
 
-.user-details p {
-    margin: 0 0 0.25rem 0;
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #374151;
     font-size: 0.9rem;
-    opacity: 0.9;
 }
 
-.user-details small {
+.user-role {
+    color: #6b7280;
     font-size: 0.8rem;
-    opacity: 0.8;
 }
 
-.user-dropdown-divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 0.5rem 0;
+.user-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    min-width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e5e7eb;
+    z-index: 1000;
+    margin-top: 0.5rem;
 }
 
-.user-dropdown-list {
-    list-style: none;
-    padding: 0.5rem 0;
-    margin: 0;
+.user-dropdown-content.show {
+    display: block;
 }
 
-.user-dropdown-list li {
-    margin: 0;
-}
-
-.user-dropdown-list a {
+.user-dropdown-content a {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 1.5rem;
-    color: var(--dark-gray);
+    padding: 0.75rem 1.25rem;
+    color: #374151;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease;
     font-size: 0.9rem;
 }
 
-.user-dropdown-list a:hover {
-    background: var(--light-gray);
-    color: var(--primary-blue);
+.user-dropdown-content a:hover {
+    background: #f9fafb;
 }
 
-.user-dropdown-list i {
-    width: 16px;
-    text-align: center;
+.user-dropdown-content a.logout-link {
+    color: #dc2626;
 }
 
-.user-dropdown-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
-    background: var(--light-gray);
-    border-radius: 0 0 10px 10px;
+.user-dropdown-content a.logout-link:hover {
+    background: #fef2f2;
 }
 
-.logout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem;
-    background: var(--danger);
-    color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.2s ease;
+.dropdown-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0.5rem 0;
 }
 
-.logout-btn:hover {
-    background: #dc2626;
-    transform: translateY(-1px);
-}
+.text-warning { color: #f59e0b !important; }
+.text-success { color: #10b981 !important; }
+.text-info { color: #3b82f6 !important; }
 
-/* Utility text colors */
-.text-warning { color: var(--warning) !important; }
-.text-success { color: var(--success) !important; }
-.text-info { color: var(--secondary-blue) !important; }
-.text-danger { color: var(--danger) !important; }
-
-/* Mobile responsiveness */
+/* Mobile responsive */
 @media (max-width: 768px) {
     .sidebar-toggle {
         display: block;
     }
     
-    .header {
+    .dashboard-header {
         padding: 1rem;
     }
     
-    .header-left h1 {
+    .header-content h1 {
         font-size: 1.5rem;
+    }
+    
+    .header-content p {
+        font-size: 0.85rem;
     }
     
     .user-info {
         display: none;
     }
     
-    .notifications-dropdown,
-    .user-dropdown-menu {
-        width: 300px;
-        right: -50px;
-    }
-    
-    .current-time {
-        font-size: 0.8rem;
+    .notification-dropdown-content,
+    .user-dropdown-content {
+        min-width: 280px;
     }
 }
 
 @media (max-width: 480px) {
-    .header-right {
-        flex-direction: column;
-        align-items: flex-end;
+    .header-actions {
         gap: 0.5rem;
     }
     
-    .notifications-dropdown,
-    .user-dropdown-menu {
-        width: 280px;
-        right: -100px;
+    .user-btn {
+        padding: 0.5rem;
     }
     
-    .header-left h1 {
-        font-size: 1.3rem;
-    }
-    
-    .user-profile {
-        scale: 0.9;
+    .notification-dropdown-content,
+    .user-dropdown-content {
+        min-width: 250px;
+        right: -50px;
     }
 }
+</style>
+
+<script>
+// Toggle sidebar for mobile
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay') || createOverlay();
+    
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
+}
+
+// Create overlay for mobile sidebar
+function createOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    overlay.onclick = toggleSidebar;
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+// Toggle notifications dropdown
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    const userDropdown = document.getElementById('userDropdown');
+    
+    // Close user dropdown if open
+    userDropdown.classList.remove('show');
+    
+    dropdown.classList.toggle('show');
+}
+
+// Toggle user menu dropdown
+function toggleUserMenu() {
+    const dropdown = document.getElementById('userDropdown');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    
+    // Close notification dropdown if open
+    notificationDropdown.classList.remove('show');
+    
+    dropdown.classList.toggle('show');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.notification-dropdown')) {
+        document.getElementById('notificationDropdown').classList.remove('show');
+    }
+    
+    if (!event.target.closest('.user-dropdown')) {
+        document.getElementById('userDropdown').classList.remove('show');
+    }
+});
+
+// Add overlay styles for mobile sidebar
+const overlayStyles = `
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.show {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .sidebar.show {
+        transform: translateX(0);
+    }
+}
+`;
+
+// Inject overlay styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = overlayStyles;
+document.head.appendChild(styleSheet);
+</script>
