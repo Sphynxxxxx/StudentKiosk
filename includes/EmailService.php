@@ -85,6 +85,51 @@ class EmailService {
     }
     
     /**
+     * Send Student Enrollment Confirmation Email
+     */
+    public function sendStudentEnrollmentConfirmationEmail($student, $subjects, $academicYear, $semester) {
+        try {
+            // Clear any previous recipients and reset sender
+            $this->mail->clearAddresses();
+            $this->mail->clearReplyTos();
+            
+            // Override sender for enrollment emails
+            $this->mail->setFrom('enrollment@isatu.edu.ph', 'ISAT University Registrar');
+            
+            // Recipient
+            $this->mail->addAddress($student['email'], $student['first_name'] . ' ' . $student['last_name']);
+            
+            // Subject
+            $this->mail->Subject = "Enrollment SY. $academicYear $semester Confirmation";
+            
+            // Email content
+            $this->mail->Body = $this->getEnrollmentConfirmationTemplate($student, $subjects, $academicYear, $semester);
+            $this->mail->AltBody = $this->getEnrollmentConfirmationTextTemplate($student, $subjects, $academicYear, $semester);
+            
+            // Send email
+            $result = $this->mail->send();
+            
+            if ($result) {
+                return [
+                    'success' => true,
+                    'message' => 'Enrollment confirmation email sent successfully to ' . $student['email']
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to send enrollment confirmation email'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Email sending failed: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Send Password Reset Email
      */
     public function sendPasswordResetEmail($facultyData, $newPassword) {
@@ -126,6 +171,162 @@ class EmailService {
     }
     
     /**
+     * HTML Template for Student Enrollment Confirmation Email
+     */
+    private function getEnrollmentConfirmationTemplate($student, $subjects, $academicYear, $semester) {
+        $totalCredits = array_sum(array_column($subjects, 'credits'));
+        $studentName = strtoupper($student['first_name'] . ' ' . $student['last_name']);
+        $course = $student['program_code'] ?? 'N/A';
+        
+        // Create subjects table
+        $subjectsTable = '';
+        foreach ($subjects as $subject) {
+            $subjectsTable .= "
+                <tr>
+                    <td style='border: 1px solid #000; padding: 8px; text-align: left;'>{$subject['course_code']}</td>
+                    <td style='border: 1px solid #000; padding: 8px; text-align: left;'>{$subject['course_name']}</td>
+                    <td style='border: 1px solid #000; padding: 8px; text-align: center;'>{$subject['credits']}</td>
+                </tr>
+            ";
+        }
+        
+        return "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <title>Enrollment Confirmation</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+                .greeting {
+                    margin: 20px 0;
+                }
+                .highlight {
+                    background-color: #ffff99;
+                    padding: 2px 4px;
+                    font-weight: bold;
+                }
+                .course-info {
+                    margin: 15px 0;
+                    font-weight: bold;
+                }
+                .subjects-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                }
+                .subjects-table th {
+                    background-color: #f0f0f0;
+                    border: 1px solid #000;
+                    padding: 10px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+                .subjects-table td {
+                    border: 1px solid #000;
+                    padding: 8px;
+                }
+                .footer {
+                    margin-top: 30px;
+                    font-size: 14px;
+                    color: #666;
+                }
+                .signature {
+                    margin-top: 20px;
+                    text-align: right;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='header'>
+                <h2>Enrollment SY. $academicYear $semester Confirmation</h2>
+            </div>
+            
+            <div class='greeting'>
+                <p>Hi $studentName,</p>
+            </div>
+            
+            <p>Your <span class='highlight'>enrollment</span> was confirmed by ISAT University Registrar. Please see the details below:</p>
+            
+            <div class='course-info'>
+                <p>Course: <strong>$course</strong></p>
+            </div>
+            
+            <p><strong>Subjects Enrolled:</strong></p>
+            
+            <table class='subjects-table'>
+                <thead>
+                    <tr>
+                        <th>Subject Name</th>
+                        <th>Descriptive Title</th>
+                        <th>Credit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $subjectsTable
+                </tbody>
+            </table>
+            
+            <div class='footer'>
+                <p>Do not reply to this computer-generated email.</p>
+                <p>Stay Safe.</p>
+                <div class='signature'>
+                    <p><strong>ISAT University</strong></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+    }
+    
+    /**
+     * Plain Text Template for Student Enrollment Confirmation Email
+     */
+    private function getEnrollmentConfirmationTextTemplate($student, $subjects, $academicYear, $semester) {
+        $totalCredits = array_sum(array_column($subjects, 'credits'));
+        $studentName = strtoupper($student['first_name'] . ' ' . $student['last_name']);
+        $course = $student['program_code'] ?? 'N/A';
+        
+        $subjectsText = '';
+        foreach ($subjects as $subject) {
+            $subjectsText .= "- {$subject['course_code']}: {$subject['course_name']} ({$subject['credits']} credits)\n";
+        }
+        
+        return "
+ENROLLMENT SY. $academicYear $semester CONFIRMATION
+================================================
+
+Hi $studentName,
+
+Your enrollment was confirmed by ISAT University Registrar. Please see the details below:
+
+Course: $course
+
+Subjects Enrolled:
+$subjectsText
+
+Total Credits: $totalCredits
+
+Do not reply to this computer-generated email.
+
+Stay Safe.
+
+ISAT University
+        ";
+    }
+    
+    /**
      * HTML Template for Faculty Welcome Email
      */
     private function getFacultyWelcomeTemplate($facultyData, $password = null) {
@@ -156,7 +357,7 @@ class EmailService {
         <body>
             <div class='container'>
                 <div class='header'>
-                    <h1>🎉 Welcome to ISATU Kiosk System</h1>
+                    <h1>Welcome to ISATU Kiosk System</h1>
                     <p>Your faculty account has been successfully created!</p>
                 </div>
                 
@@ -166,7 +367,7 @@ class EmailService {
                     <p>Congratulations! You have been successfully enrolled as a faculty member in the ISATU Kiosk System. Your account is now active and ready to use.</p>
                     
                     <div class='credentials-box'>
-                        <h3>📋 Your Account Details</h3>
+                        <h3>Your Account Details</h3>
                         <div class='info-row'><span class='label'>Full Name:</span> " . htmlspecialchars($facultyData['first_name'] . ' ' . $facultyData['last_name']) . "</div>
                         <div class='info-row'><span class='label'>Email:</span> " . htmlspecialchars($facultyData['email']) . "</div>
                         <div class='info-row'><span class='label'>Username:</span> " . htmlspecialchars($facultyData['username']) . "</div>
@@ -177,12 +378,12 @@ class EmailService {
                     
                     " . ($password ? "
                     <div class='warning'>
-                        <strong>⚠️ Important Security Notice:</strong><br>
+                        <strong>Important Security Notice:</strong><br>
                         This is a temporary password. For your security, please log in and change your password immediately after your first login.
                     </div>
                     " : "") . "
                     
-                    <h3>🚀 Getting Started</h3>
+                    <h3>Getting Started</h3>
                     <ol>
                         <li>Click the login button below to access your account</li>
                         <li>Use your username and " . ($password ? "temporary password" : "assigned password") . " to log in</li>
@@ -192,10 +393,10 @@ class EmailService {
                     </ol>
                     
                     <div style='text-align: center;'>
-                        <a href='" . $loginUrl . "' class='button'>🔐 Login to Your Account</a>
+                        <a href='" . $loginUrl . "' class='button'>Login to Your Account</a>
                     </div>
                     
-                    <h3>📞 Need Help?</h3>
+                    <h3>Need Help?</h3>
                     <p>If you have any questions or need assistance, please contact our support team:</p>
                     <ul>
                         <li>Email: <a href='mailto:" . $supportEmail . "'>" . $supportEmail . "</a></li>
@@ -287,7 +488,7 @@ Please do not reply to this email.
         <body>
             <div class='container'>
                 <div class='header'>
-                    <h1>🔐 Password Reset</h1>
+                    <h1>Password Reset</h1>
                     <p>Your password has been reset</p>
                 </div>
                 
@@ -302,12 +503,12 @@ Please do not reply to this email.
                     </div>
                     
                     <div class='warning'>
-                        <strong>⚠️ Important Security Notice:</strong><br>
+                        <strong>Important Security Notice:</strong><br>
                         This is a temporary password. You must change it immediately after logging in for security reasons.
                     </div>
                     
                     <div style='text-align: center;'>
-                        <a href='" . $loginUrl . "' class='button'>🔐 Login and Change Password</a>
+                        <a href='" . $loginUrl . "' class='button'>Login and Change Password</a>
                     </div>
                 </div>
                 

@@ -13,7 +13,162 @@ require_once '../config/database.php';
 $message = '';
 $message_type = '';
 
-// No form submissions needed anymore since we removed enrollment and delete features
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'enroll_student':
+                try {
+                    // Check if student ID already exists in users table
+                    $stmt = $pdo->prepare("SELECT id FROM users WHERE student_id = ?");
+                    $stmt->execute([$_POST['student_id']]);
+                    $existing_user = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($existing_user) {
+                        // Check if student is already enrolled in this section
+                        $stmt = $pdo->prepare("
+                            SELECT id FROM enrollments 
+                            WHERE student_id = ? AND class_section_id = ?
+                        ");
+                        $stmt->execute([$existing_user['id'], $_POST['class_section_id']]);
+                        
+                        if ($stmt->rowCount() > 0) {
+                            $message = 'Student is already enrolled in this course section!';
+                            $message_type = 'error';
+                        } else {
+                            // Check if section is full
+                            $stmt = $pdo->prepare("
+                                SELECT cs.max_students, COUNT(e.id) as current_count
+                                FROM class_sections cs
+                                LEFT JOIN enrollments e ON cs.id = e.class_section_id AND e.status = 'enrolled'
+                                WHERE cs.id = ?
+                                GROUP BY cs.id
+                            ");
+                            $stmt->execute([$_POST['class_section_id']]);
+                            $section_info = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            if ($section_info && $section_info['current_count'] >= $section_info['max_students']) {
+                                $message = 'Cannot enroll: Section is full!';
+                                $message_type = 'error';
+                            } else {
+                                // Enroll the existing student
+                                $stmt = $pdo->prepare("
+                                    INSERT INTO enrollments (student_id, class_section_id, enrollment_date, status) 
+                                    VALUES (?, ?, NOW(), 'enrolled')
+                                ");
+                                $stmt->execute([$existing_user['id'], $_POST['class_section_id']]);
+                                $message = 'Student enrolled successfully!';
+                                $message_type = 'success';
+                            }
+                        }
+                    } else {
+                        // Create new student user first
+                        $stmt = $pdo->prepare("
+                            INSERT INTO users (username, email, password, first_name, last_name, role, student_id, status) 
+                            VALUES (?, ?, ?, ?, ?, 'student', ?, 'active')
+                        ");
+                        
+                        // Generate username from first name and last name
+                        $username = strtolower(substr($_POST['first_name'], 0, 1) . $_POST['last_name']);
+                        $username = preg_replace('/[^a-zA-Z0-9]/', '', $username); // Remove special characters
+                        
+                        // Check if username exists and add number if needed
+                        $original_username = $username;
+                        $counter = 1;
+                        while (true) {
+                            $check_stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+                            $check_stmt->execute([$username]);
+                            if ($check_stmt->rowCount() == 0) break;
+                            $username = $original_username . $counter;
+                            $counter++;
+                        }
+                        
+                        // Default password (should be changed by student on first login)
+                        $default_password = password_hash('student123', PASSWORD_DEFAULT);
+                        
+                        // Build full name with middle initial
+                        $first_name = $_POST['first_name'];
+                        if (!empty($_POST['middle_initial'])) {
+                            $first_name .= ' ' . $_POST['middle_initial'] . '.';
+                        }
+                        
+                        $stmt->execute([
+                            $username,
+                            $_POST['email'],
+                            $default_password,
+                            $first_name,
+                            $_POST['last_name'],
+                            $_POST['student_id']
+                        ]);
+                        
+                        $new_user_id = $pdo->lastInsertId();
+                        
+                        // Now enroll the new student
+                        $stmt = $pdo->prepare("
+                            INSERT INTO enrollments (student_id, class_section_id, enrollment_date, status) 
+                            VALUES (?, ?, NOW(), 'enrolled')
+                        ");
+                        $stmt->execute([$new_user_id, $_POST['class_section_id']]);
+                        
+                        $message = 'New student created and enrolled successfully! Default password: student123';
+                        $message_type = 'success';
+                    }
+                } catch (PDOException $e) {
+                    if ($e->getCode() == 23000) {
+                        // Check which constraint failed
+                        if (strpos($e->getMessage(), 'student_id') !== false) {
+                            $message = 'Student ID already exists!';
+                        } elseif (strpos($e->getMessage(), 'email') !== false) {
+                            $message = 'Email address already exists!';
+                        } elseif (strpos($e->getMessage(), 'username') !== false) {
+                            $message = 'Username already exists!';
+                        } else {
+                            $message = 'Student already exists or is already enrolled!';
+                        }
+                        $message_type = 'error';
+                    } else {
+                        $message = 'Error enrolling student: ' . $e->getMessage();
+                        $message_type = 'error';
+                    }
+                }
+                break;
+                
+            case 'delete_student':
+                try {
+                    // First, delete the enrollment record
+                    $stmt = $pdo->prepare("
+                        DELETE FROM enrollments 
+                        WHERE student_id = ? AND class_section_id = ?
+                    ");
+                    $stmt->execute([$_POST['student_id'], $_POST['class_section_id']]);
+                    
+                    // Check if student has any other enrollments
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(*) as enrollment_count 
+                        FROM enrollments 
+                        WHERE student_id = ?
+                    ");
+                    $stmt->execute([$_POST['student_id']]);
+                    $enrollment_check = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // If no other enrollments exist, delete the student user account
+                    if ($enrollment_check['enrollment_count'] == 0) {
+                        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                        $stmt->execute([$_POST['student_id']]);
+                        $message = 'Student and user account deleted successfully!';
+                    } else {
+                        $message = 'Student removed from course successfully!';
+                    }
+                    
+                    $message_type = 'success';
+                } catch (PDOException $e) {
+                    $message = 'Error deleting student: ' . $e->getMessage();
+                    $message_type = 'error';
+                }
+                break;
+        }
+    }
+}
 
 try {
     // Get faculty's assigned courses with class sections
@@ -180,6 +335,89 @@ try {
                                     <?php endif; ?>
                                 </div>
                             </div>
+                            
+                            <!-- Enrollment Section - Hidden by default -->
+                            <div class="enrollment-section" id="enrollment-<?php echo $course['section_id']; ?>" style="display: none;">
+                                <div class="enrollment-header">
+                                    <div class="enrollment-title">
+                                        <i class="fas fa-user-plus"></i>
+                                        Enroll New Student
+                                    </div>
+                                    <div class="capacity-indicator">
+                                        <?php 
+                                        $percentage = ($course['enrolled_count'] / $course['max_students']) * 100;
+                                        $capacity_class = 'capacity-normal';
+                                        if ($percentage >= 90) $capacity_class = 'capacity-full';
+                                        elseif ($percentage >= 75) $capacity_class = 'capacity-warning';
+                                        ?>
+                                        <span><?php echo $course['enrolled_count']; ?>/<?php echo $course['max_students']; ?></span>
+                                        <div class="capacity-bar">
+                                            <div class="capacity-fill <?php echo $capacity_class; ?>" style="width: <?php echo $percentage; ?>%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="enroll-student-form">
+                                    <form method="POST" action="">
+                                        <input type="hidden" name="action" value="enroll_student">
+                                        <input type="hidden" name="class_section_id" value="<?php echo $course['section_id']; ?>">
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="student_id_<?php echo $course['section_id']; ?>">Student ID *</label>
+                                                <input type="text" 
+                                                       id="student_id_<?php echo $course['section_id']; ?>" 
+                                                       name="student_id" 
+                                                       placeholder="Enter student ID"
+                                                       required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="first_name_<?php echo $course['section_id']; ?>">First Name *</label>
+                                                <input type="text" 
+                                                       id="first_name_<?php echo $course['section_id']; ?>" 
+                                                       name="first_name" 
+                                                       placeholder="Enter first name"
+                                                       required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="last_name_<?php echo $course['section_id']; ?>">Last Name *</label>
+                                                <input type="text" 
+                                                       id="last_name_<?php echo $course['section_id']; ?>" 
+                                                       name="last_name" 
+                                                       placeholder="Enter last name"
+                                                       required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="middle_initial_<?php echo $course['section_id']; ?>">Middle Initial</label>
+                                                <input type="text" 
+                                                       id="middle_initial_<?php echo $course['section_id']; ?>" 
+                                                       name="middle_initial" 
+                                                       placeholder="M.I."
+                                                       maxlength="2">
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="email_<?php echo $course['section_id']; ?>">Email *</label>
+                                                <input type="email" 
+                                                       id="email_<?php echo $course['section_id']; ?>" 
+                                                       name="email" 
+                                                       placeholder="student@example.com"
+                                                       required>
+                                            </div>
+                                            
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-plus"></i>
+                                                Enroll Student
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -260,9 +498,23 @@ try {
             document.getElementById('messageModal').style.display = 'none';
         }
 
-        // Check for PHP messages and show modal - removed since no more server messages
+        // Check for PHP messages and show modal
+        <?php if ($message): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            showMessageModal(
+                '<?php echo $message_type; ?>', 
+                '<?php echo $message_type === 'success' ? 'Success' : 'Error'; ?>', 
+                '<?php echo addslashes($message); ?>'
+            );
+        });
+        <?php endif; ?>
 
         function selectCourse(sectionId, courseCode, courseName) {
+            // Hide all enrollment sections first
+            document.querySelectorAll('.enrollment-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
             // Remove active class from all subject items
             document.querySelectorAll('.subject-item').forEach(item => {
                 item.classList.remove('active');
@@ -270,6 +522,9 @@ try {
             
             // Add active class to selected item
             document.querySelector(`[data-section-id="${sectionId}"]`).classList.add('active');
+            
+            // Show enrollment section for selected course
+            document.getElementById(`enrollment-${sectionId}`).style.display = 'block';
             
             // Update right panel title
             document.getElementById('selectedCourseTitle').textContent = `ENROLLED STUDENTS - ${courseCode}`;
@@ -342,6 +597,10 @@ try {
                                 <i class="fas fa-edit"></i>
                                 Grades
                             </button>
+                            <button class="btn btn-danger" onclick="deleteStudent(${student.user_id}, ${sectionId}, '${student.full_name}')">
+                                <i class="fas fa-trash"></i>
+                                Delete
+                            </button>
                         </div>
                     </div>
                 `;
@@ -350,6 +609,36 @@ try {
             container.innerHTML = html;
         }
 
+        function deleteStudent(studentId, sectionId, studentName) {
+            if (confirm(`⚠️ WARNING: This will permanently delete ${studentName} from the system.\n\nThis action will:\n• Remove the student from this course\n• Remove all associated data\n\nThis action CANNOT be undone. Are you sure you want to proceed?`)) {
+                // Create and submit a form for deletion
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete_student';
+                
+                const studentIdInput = document.createElement('input');
+                studentIdInput.type = 'hidden';
+                studentIdInput.name = 'student_id';
+                studentIdInput.value = studentId;
+                
+                const sectionIdInput = document.createElement('input');
+                sectionIdInput.type = 'hidden';
+                sectionIdInput.name = 'class_section_id';
+                sectionIdInput.value = sectionId;
+                
+                form.appendChild(actionInput);
+                form.appendChild(studentIdInput);
+                form.appendChild(sectionIdInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
 
         // Auto-refresh enrolled students every 30 seconds
         setInterval(() => {

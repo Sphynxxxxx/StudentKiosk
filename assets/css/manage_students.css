@@ -1,0 +1,323 @@
+.enrollment-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .enrollment-section.full {
+            background-color: #fef2f2;
+            border-color: #fecaca;
+        }
+        
+        .section-info h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1f2937;
+        }
+        
+        .section-info p {
+            margin: 0.25rem 0;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .enrollment-status {
+            margin-top: 0.5rem;
+        }
+        
+        .enrollment-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-direction: column;
+        }
+        
+        .student-info-header {
+            background-color: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .student-info-header h3 {
+            margin: 0 0 0.5rem 0;
+            color: #1f2937;
+        }
+        
+        .student-info-header p {
+            margin: 0;
+            color: #6b7280;
+        }
+        
+        .available-sections h4 {
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        /* Make view modal larger */
+        #viewStudentModal .modal-content {
+            max-width: 800px;
+            width: 90%;
+        }
+        
+        /* Make enrollment modal larger */
+        #enrollmentModal .modal-content {
+            max-width: 900px;
+            width: 95%;
+        }
+        
+        /* Increase modal content padding for better spacing */
+        .modal-content {
+            padding: 2rem;
+        }
+        
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .detail-item label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+        }
+        
+        .detail-item span {
+            color: #1f2937;
+        }
+        
+        .enrollment-info {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .badge-primary {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .badge-secondary {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .badge-success {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+        
+        .badge-danger {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+        
+        /* Student Enrollment Styles */
+        .enrollments-section {
+            margin-top: 2rem;
+        }
+        
+        .enrollments-section h4 {
+            margin-bottom: 1rem;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        
+        .enrollments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .enrollment-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            background-color: #f9fafb;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .course-info h5 {
+            margin: 0 0 0.5rem 0;
+            color: #1f2937;
+            font-size: 1.1rem;
+        }
+        
+        .course-info p {
+            margin: 0.25rem 0;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .enrollment-status {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .enrollment-status small {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+        
+        .no-enrollments {
+            color: #6b7280;
+            font-style: italic;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .error-message {
+            color: #dc2626;
+            font-style: italic;
+            text-align: center;
+            padding: 1rem;
+            background-color: #fee2e2;
+            border-radius: 4px;
+        }
+
+        .faculty-sections h4 {
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .no-enrollments-faculty {
+            text-align: center;
+            padding: 3rem 1rem;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            border: 2px dashed #d1d5db;
+        }
+
+        .no-enrollments-faculty i {
+            font-size: 2rem;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+
+        .no-enrollments-faculty p {
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .badge-info {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            align-items: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+
+        .enrollment-management {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Scrollbar styling */
+        .enrollment-management::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* Success animation for official enrollment */
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-primary.success-animation {
+            animation: successPulse 0.6s ease-in-out;
+        }

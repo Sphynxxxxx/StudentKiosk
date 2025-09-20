@@ -1,13 +1,12 @@
 <?php
+// Start the session first
+session_start();
+
 // Include database configuration
 require_once '../config/database.php';
 
 // Include PHPMailer autoload (adjust path based on your installation)
 require_once '../vendor/autoload.php'; // If using Composer
-// OR if using manual installation:
-// require_once '../includes/phpmailer/src/PHPMailer.php';
-// require_once '../includes/phpmailer/src/SMTP.php';
-// require_once '../includes/phpmailer/src/Exception.php';
 
 // Include Email Service
 require_once '../includes/StudentService.php';
@@ -216,6 +215,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $message = 'Student enrollment confirmed successfully!';
                     $message_type = 'success';
                     break;
+
+                case 'officially_enroll':
+                    try {
+                        // Get student information
+                        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND role = 'student'");
+                        $stmt->execute([$_POST['student_id_pk']]);
+                        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if (!$student) {
+                            $message = 'Student not found!';
+                            $message_type = 'error';
+                            break;
+                        }
+                        
+                        // Initialize StudentService
+                        $studentService = new StudentService($pdo);
+                        
+                        // Send enrollment confirmation email
+                        $emailResult = $studentService->sendEnrollmentConfirmationEmail($_POST['student_id_pk']);
+                        
+                        if ($emailResult['success']) {
+                            // Get the current user ID for logging
+                            $currentUserId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 
+                                           (isset($_SESSION['faculty_id']) ? $_SESSION['faculty_id'] : null);
+                            
+                            if ($currentUserId) {
+                                // Log the enrollment confirmation
+                                $studentService->logEnrollmentConfirmation(
+                                    $_POST['student_id_pk'], 
+                                    $currentUserId, 
+                                    'officially_enrolled'
+                                );
+                                
+                                // Update enrollment status
+                                $studentService->updateEnrollmentStatus($_POST['student_id_pk'], 'officially_enrolled');
+                            }
+                            
+                            $message = "Student {$student['first_name']} {$student['last_name']} has been officially enrolled! " . $emailResult['message'];
+                            $message_type = 'success';
+                        } else {
+                            $message = 'Failed to send enrollment confirmation: ' . $emailResult['message'];
+                            $message_type = 'error';
+                        }
+                        
+                    } catch (Exception $e) {
+                        $message = 'Error processing official enrollment: ' . $e->getMessage();
+                        $message_type = 'error';
+                    }
+                    break;
                     
                 case 'remove_enrollment':
                     // Remove student enrollment
@@ -263,6 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+
 // Get all students with their enrollment information
 try {
     $stmt = $pdo->prepare("
@@ -297,10 +346,11 @@ try {
 }
 
 // Get available class sections for enrollment
+// Get available class sections for enrollment
 try {
     $stmt = $pdo->prepare("
         SELECT 
-            cs.id, cs.section_name, cs.schedule, cs.room, cs.max_students,
+            cs.id, cs.section_name, cs.schedule, cs.room, cs.max_students, cs.faculty_id,
             c.course_name, c.course_code,
             CONCAT(uf.first_name, ' ', uf.last_name) as faculty_name,
             d.name as department_name,
@@ -872,7 +922,7 @@ try {
             if (!student) return;
             
             // Fetch student's enrollments via AJAX
-            fetch(`get_student_enrollments.php?student_id=${studentId}`)
+            fetch(`../api/get_student_enrollments.php?student_id=${studentId}`)
                 .then(response => response.json())
                 .then(enrollments => {
                     let enrollmentsHTML = '';
@@ -1047,64 +1097,122 @@ try {
             const student = allStudentData.find(s => s.id == studentId);
             if (!student) return;
             
-            // Create enrollment management content
-            let sectionsHTML = '';
-            classSections.forEach(section => {
-                const availableSpots = section.max_students - section.current_enrollments;
-                const isAvailable = availableSpots > 0;
-                
-                sectionsHTML += `
-                    <div class="enrollment-section ${!isAvailable ? 'full' : ''}">
-                        <div class="section-info">
-                            <h4>${section.course_code} - ${section.course_name}</h4>
-                            <p><strong>Section:</strong> ${section.section_name}</p>
-                            <p><strong>Faculty:</strong> ${section.faculty_name || 'TBA'}</p>
-                            <p><strong>Schedule:</strong> ${section.schedule || 'TBA'}</p>
-                            <p><strong>Room:</strong> ${section.room || 'TBA'}</p>
-                            <p><strong>Department:</strong> ${section.department_name || 'N/A'}</p>
-                            <div class="enrollment-status">
-                                <span class="badge ${isAvailable ? 'badge-success' : 'badge-danger'}">
-                                    ${section.current_enrollments}/${section.max_students} enrolled
-                                </span>
-                                ${!isAvailable ? '<span class="badge badge-warning">FULL</span>' : ''}
+            // Fetch student's current enrollments to filter class sections
+            fetch(`../api/get_student_enrollments.php?student_id=${studentId}`)
+                .then(response => response.json())
+                .then(studentEnrollments => {
+                    // Get the class section IDs that the student is enrolled in
+                    const enrolledSectionIds = studentEnrollments.map(enrollment => enrollment.class_section_id);
+                    
+                    // Filter class sections to show only those the student is enrolled in
+                    const enrolledSections = classSections.filter(section => 
+                        enrolledSectionIds.includes(section.id.toString()) || enrolledSectionIds.includes(section.id)
+                    );
+                    
+                    // Create enrollment management content
+                    let sectionsHTML = '';
+                    
+                    if (enrolledSections.length > 0) {
+                        enrolledSections.forEach(section => {
+                            const availableSpots = section.max_students - section.current_enrollments;
+                            const isAvailable = availableSpots > 0;
+                            
+                            sectionsHTML += `
+                                <div class="enrollment-section ${!isAvailable ? 'full' : ''}">
+                                    <div class="section-info">
+                                        <h4>${section.course_code} - ${section.course_name}</h4>
+                                        <p><strong>Section:</strong> ${section.section_name}</p>
+                                        <p><strong>Faculty:</strong> ${section.faculty_name || 'TBA'}</p>
+                                        <p><strong>Schedule:</strong> ${section.schedule || 'TBA'}</p>
+                                        <p><strong>Room:</strong> ${section.room || 'TBA'}</p>
+                                        <p><strong>Department:</strong> ${section.department_name || 'N/A'}</p>
+                                        <div class="enrollment-status">
+                                            <span class="badge badge-success">ENROLLED</span>
+                                            <span class="badge ${isAvailable ? 'badge-success' : 'badge-danger'}">
+                                                ${section.current_enrollments}/${section.max_students} enrolled
+                                            </span>
+                                            ${!isAvailable ? '<span class="badge badge-warning">FULL</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div class="enrollment-actions">
+                                        <button class="btn btn-sm btn-success" onclick="confirmEnrollment(${studentId}, ${section.id})">
+                                            <i class="fas fa-check"></i> Confirm Subject
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="removeEnrollment(${studentId}, ${section.id})">
+                                            <i class="fas fa-minus"></i> Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        sectionsHTML = '<p class="no-enrollments">This student is not enrolled in any subjects yet.</p>';
+                    }
+                    
+                    const content = `
+                        <div class="enrollment-management">
+                            <div class="student-info-header">
+                                <h3>${student.first_name} ${student.last_name} (${student.student_id})</h3>
+                                <p>Current Enrollments: ${student.active_enrollments}</p>
+                            </div>
+                            <div class="available-sections">
+                                <h4>Enrolled Subjects</h4>
+                                ${sectionsHTML}
                             </div>
                         </div>
-                        <div class="enrollment-actions">
-                            ${isAvailable ? `
-                                <button class="btn btn-sm btn-success" onclick="confirmEnrollment(${studentId}, ${section.id})">
-                                    <i class="fas fa-plus"></i> Enroll
-                                </button>
-                            ` : `
-                                <button class="btn btn-sm btn-secondary" disabled>
-                                    <i class="fas fa-ban"></i> Full
-                                </button>
-                            `}
-                            <button class="btn btn-sm btn-danger" onclick="removeEnrollment(${studentId}, ${section.id})">
-                                <i class="fas fa-minus"></i> Remove
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeEnrollmentModal()">Close</button>
+                            <button type="button" class="btn btn-primary" onclick="officiallyEnrollStudent(${studentId}, '${student.first_name} ${student.last_name}')">
+                                <i class="fas fa-certificate"></i> Officially Enrolled
                             </button>
                         </div>
-                    </div>
+                    `;
+                    
+                    document.getElementById('enrollmentContent').innerHTML = content;
+                    document.getElementById('enrollmentModal').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error fetching student enrollments:', error);
+                    
+                    // Fallback content if there's an error
+                    const content = `
+                        <div class="enrollment-management">
+                            <div class="student-info-header">
+                                <h3>${student.first_name} ${student.last_name} (${student.student_id})</h3>
+                                <p>Current Enrollments: ${student.active_enrollments}</p>
+                            </div>
+                            <div class="available-sections">
+                                <h4>Enrolled Subjects</h4>
+                                <p class="error-message">Unable to load enrollment data. Please try again.</p>
+                            </div>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeEnrollmentModal()">Close</button>
+                            <button type="button" class="btn btn-primary" onclick="officiallyEnrollStudent(${studentId}, '${student.first_name} ${student.last_name}')">
+                                <i class="fas fa-certificate"></i> Officially Enrolled
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('enrollmentContent').innerHTML = content;
+                    document.getElementById('enrollmentModal').style.display = 'block';
+                });
+        }
+
+        function officiallyEnrollStudent(studentId, studentName) {
+            if (confirm(`Officially enroll ${studentName}?\n\nThis will:\n• Mark the student as officially enrolled\n• Send an enrollment confirmation email\n• Update enrollment status in the system\n\nContinue?`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+                
+                form.innerHTML = `
+                    <input type="hidden" name="action" value="officially_enroll">
+                    <input type="hidden" name="student_id_pk" value="${studentId}">
                 `;
-            });
-            
-            const content = `
-                <div class="enrollment-management">
-                    <div class="student-info-header">
-                        <h3>${student.first_name} ${student.last_name} (${student.student_id})</h3>
-                        <p>Current Enrollments: ${student.active_enrollments}</p>
-                    </div>
-                    <div class="available-sections">
-                        <h4>Available Class Sections</h4>
-                        ${sectionsHTML || '<p>No class sections available.</p>'}
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeEnrollmentModal()">Close</button>
-                </div>
-            `;
-            
-            document.getElementById('enrollmentContent').innerHTML = content;
-            document.getElementById('enrollmentModal').style.display = 'block';
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
         }
         
         function confirmEnrollment(studentId, classSectionId) {
@@ -1574,6 +1682,121 @@ try {
             padding: 1rem;
             background-color: #fee2e2;
             border-radius: 4px;
+        }
+
+        .faculty-sections h4 {
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .no-enrollments-faculty {
+            text-align: center;
+            padding: 3rem 1rem;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            border: 2px dashed #d1d5db;
+        }
+
+        .no-enrollments-faculty i {
+            font-size: 2rem;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+
+        .no-enrollments-faculty p {
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .badge-info {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            align-items: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+
+        .enrollment-management {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Scrollbar styling */
+        .enrollment-management::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .enrollment-management::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* Success animation for official enrollment */
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-primary.success-animation {
+            animation: successPulse 0.6s ease-in-out;
         }
     </style>
 </body>
