@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: white;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .login-btn {
             width: 100%;
             padding: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1e3a8a;
             color: white;
             border: none;
             border-radius: 10px;
@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .faculty-icon {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1e3a8a;
             color: white;
             width: 70px;
             height: 70px;
@@ -191,6 +191,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             font-size: 2rem;
             margin: 0 auto 1rem auto;
+        }
+
+        .faculty-icon img {
+            width: 100px;  
+            height: auto;
+            object-fit: contain;
         }
 
         .forgot-password {
@@ -223,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-container">
         <div class="login-header">
             <div class="faculty-icon">
-                <i class="fas fa-chalkboard-teacher"></i>
+                <img src="assets/images/ISATU Logo.png" alt="Faculty" />
             </div>
             <h1>Faculty Login</h1>
             <p>ISATU Kiosk System</p>
