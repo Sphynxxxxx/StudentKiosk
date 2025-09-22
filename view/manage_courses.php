@@ -2,8 +2,6 @@
 // Include database configuration
 require_once '../config/database.php';
 
-
-
 $message = '';
 $message_type = '';
 
@@ -65,15 +63,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
                 
-            case 'toggle_status':
+            case 'delete_course':
                 try {
-                    $stmt = $pdo->prepare("UPDATE courses SET status = ? WHERE id = ?");
-                    $new_status = $_POST['current_status'] === 'active' ? 'inactive' : 'active';
-                    $stmt->execute([$new_status, $_POST['course_id']]);
-                    $message = 'Course status updated successfully!';
-                    $message_type = 'success';
+                    // Check if course is assigned to any class sections
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM class_sections WHERE course_id = ?");
+                    $stmt->execute([$_POST['course_id']]);
+                    $section_count = $stmt->fetchColumn();
+                    
+                    if ($section_count > 0) {
+                        $message = 'Cannot delete course: It is assigned to ' . $section_count . ' class section(s). Please remove all assignments first.';
+                        $message_type = 'error';
+                    } else {
+                        // Check if course has any enrolled students (if you have an enrollments table)
+                        // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE course_id = ?");
+                        // $stmt->execute([$_POST['course_id']]);
+                        // $enrollment_count = $stmt->fetchColumn();
+                        
+                        // if ($enrollment_count > 0) {
+                        //     $message = 'Cannot delete course: It has enrolled students. Please unenroll all students first.';
+                        //     $message_type = 'error';
+                        // } else {
+                            // Safe to delete
+                            $stmt = $pdo->prepare("DELETE FROM courses WHERE id = ?");
+                            $stmt->execute([$_POST['course_id']]);
+                            $message = 'Course deleted successfully!';
+                            $message_type = 'success';
+                        // }
+                    }
                 } catch (PDOException $e) {
-                    $message = 'Error updating course status: ' . $e->getMessage();
+                    $message = 'Error deleting course: ' . $e->getMessage();
                     $message_type = 'error';
                 }
                 break;
@@ -110,6 +128,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } catch (PDOException $e) {
                     $message = 'Error assigning faculty: ' . $e->getMessage();
+                    $message_type = 'error';
+                }
+                break;
+                
+            case 'delete_section':
+                try {
+                    // Check if section has any enrolled students (if you have an enrollments table)
+                    // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE class_section_id = ?");
+                    // $stmt->execute([$_POST['section_id']]);
+                    // $enrollment_count = $stmt->fetchColumn();
+                    
+                    // if ($enrollment_count > 0) {
+                    //     $message = 'Cannot delete class section: It has ' . $enrollment_count . ' enrolled student(s). Please unenroll all students first.';
+                    //     $message_type = 'error';
+                    // } else {
+                        // Safe to delete
+                        $stmt = $pdo->prepare("DELETE FROM class_sections WHERE id = ?");
+                        $stmt->execute([$_POST['section_id']]);
+                        $message = 'Class section deleted successfully!';
+                        $message_type = 'success';
+                    // }
+                } catch (PDOException $e) {
+                    $message = 'Error deleting class section: ' . $e->getMessage();
                     $message_type = 'error';
                 }
                 break;
@@ -177,287 +218,8 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <title>Manage Courses - ISATU Kiosk System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin_dashboard.css" rel="stylesheet">
-    <style>
-        .tabs {
-            display: flex;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-            overflow: hidden;
-        }
-
-        .tab-button {
-            flex: 1;
-            padding: 20px;
-            background: none;
-            border: none;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            color: #666;
-        }
-
-        .tab-button.active {
-            background-color: #1e3a8a;
-            color: white;
-        }
-
-        .tab-button:hover:not(.active) {
-            background-color: #f8f9fa;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .form-card {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group label {
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background-color: #1e3a8a;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-warning {
-            background-color: #ffc107;
-            color: #000;
-        }
-
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .btn-sm {
-            padding: 8px 15px;
-            font-size: 0.875rem;
-        }
-
-        .table-container {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th {
-            background-color: #1e3a8a;
-            color: white;
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-        }
-
-        .table td {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            vertical-align: middle;
-        }
-
-        .table tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        .status-active {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .status-inactive {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 30px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .modal-header h2 {
-            color: #333;
-        }
-
-        .close {
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #aaa;
-        }
-
-        .close:hover {
-            color: #000;
-        }
-
-        .search-bar {
-            margin-bottom: 20px;
-        }
-
-        .search-bar input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-
-        .alert.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        @media (max-width: 768px) {
-            .tabs {
-                flex-direction: column;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .table-container {
-                overflow-x: auto;
-            }
-            
-            .action-buttons {
-                justify-content: center;
-            }
-        }
-    </style>
+    <link href="../assets/css/manage_courses.css" rel="stylesheet">
+    
 </head>
 <body>
     <div class="admin-layout">
@@ -589,13 +351,11 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     <i class="fas fa-edit"></i> Edit
                                                 </button>
                                                 <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="action" value="toggle_status">
+                                                    <input type="hidden" name="action" value="delete_course">
                                                     <input type="hidden" name="course_id" value="<?php echo $course['id']; ?>">
-                                                    <input type="hidden" name="current_status" value="<?php echo $course['status']; ?>">
-                                                    <button type="submit" class="btn <?php echo $course['status'] === 'active' ? 'btn-danger' : 'btn-success'; ?> btn-sm" 
-                                                            onclick="return confirm('Are you sure you want to <?php echo $course['status'] === 'active' ? 'deactivate' : 'activate'; ?> this course?')">
-                                                        <i class="fas fa-<?php echo $course['status'] === 'active' ? 'ban' : 'check'; ?>"></i>
-                                                        <?php echo $course['status'] === 'active' ? 'Deactivate' : 'Activate'; ?>
+                                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                                            onclick="return confirm('Are you sure you want to DELETE this course? This action cannot be undone.\n\nCourse: <?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_name']); ?>')">
+                                                        <i class="fas fa-trash"></i> Delete
                                                     </button>
                                                 </form>
                                             </div>
@@ -696,49 +456,60 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <!-- Class Sections Tab -->
-                <div id="class-sections" class="tab-content">
-                    <div class="dashboard-card">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-users"></i> Class Sections
-                            </h3>
-                        </div>
-                        
-                        <div class="search-bar">
-                            <input type="text" id="sectionSearch" placeholder="Search class sections..." onkeyup="filterTable('sectionSearch', 'sectionsTable')">
-                        </div>
-                        
-                        <div class="table-container">
-                            <table class="table" id="sectionsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Course</th>
-                                        <th>Section</th>
-                                        <th>Faculty</th>
-                                        <th>Academic Year</th>
-                                        <th>Schedule</th>
-                                        <th>Room</th>
-                                        <th>Max Students</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($class_sections as $section): ?>
-                                    <tr>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($section['course_code']); ?></strong><br>
-                                            <small><?php echo htmlspecialchars($section['course_name']); ?></small>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($section['section_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($section['faculty_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($section['academic_year']); ?></td>
-                                        <td><?php echo htmlspecialchars($section['schedule'] ?: 'Not set'); ?></td>
-                                        <td><?php echo htmlspecialchars($section['room'] ?: 'Not set'); ?></td>
-                                        <td><?php echo $section['max_students']; ?></td>
-                                        <td>
-                                            <span class="status-badge status-<?php echo $section['status']; ?>">
-                                                <?php echo ucfirst($section['status']); ?>
+<div id="class-sections" class="tab-content">
+    <div class="dashboard-card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <i class="fas fa-users"></i> Class Sections
+            </h3>
+        </div>
+        
+        <div class="search-bar">
+            <input type="text" id="sectionSearch" placeholder="Search class sections..." onkeyup="filterTable('sectionSearch', 'sectionsTable')">
+        </div>
+        
+        <div class="table-container">
+            <table class="table" id="sectionsTable">
+                <thead>
+                    <tr>
+                        <th>Course</th>
+                        <th>Section</th>
+                        <th>Faculty</th>
+                        <th>Academic Year</th>
+                        <th>Schedule</th>
+                        <th>Room</th>
+                        <th>Max Students</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($class_sections as $section): ?>
+                    <tr>
+                        <td>
+                            <strong><?php echo htmlspecialchars($section['course_code']); ?></strong><br>
+                            <small><?php echo htmlspecialchars($section['course_name']); ?></small>
+                        </td>
+                        <td><?php echo htmlspecialchars($section['section_name']); ?></td>
+                        <td><?php echo htmlspecialchars($section['faculty_name']); ?></td>
+                        <td><?php echo htmlspecialchars($section['academic_year']); ?></td>
+                        <td><?php echo htmlspecialchars($section['schedule'] ?: 'Not set'); ?></td>
+                        <td><?php echo htmlspecialchars($section['room'] ?: 'Not set'); ?></td>
+                        <td><?php echo $section['max_students']; ?></td>
+                        <td>
+                            <span class="status-badge status-<?php echo $section['status']; ?>">
+                                <?php echo ucfirst($section['status']); ?>
                             </span>
+                        </td>
+                        <td>
+                            <form method="POST" style="display: inline;">
+                                <input type="hidden" name="action" value="delete_section">
+                                <input type="hidden" name="section_id" value="<?php echo $section['id']; ?>">
+                                <button type="submit" class="btn btn-danger btn-sm" 
+                                        onclick="return confirm('Are you sure you want to DELETE this class section? This action cannot be undone.\n\nCourse: <?php echo htmlspecialchars($section['course_code'] . ' - ' . $section['course_name']); ?>\nSection: <?php echo htmlspecialchars($section['section_name']); ?>\nFaculty: <?php echo htmlspecialchars($section['faculty_name']); ?>')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -747,9 +518,6 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Edit Course Modal -->
     <div id="editCourseModal" class="modal">
@@ -762,6 +530,37 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <input type="hidden" name="action" value="edit_course">
                 <input type="hidden" id="edit_course_id" name="course_id">
                 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_course_code">Course Code *</label>
+                        <input type="text" id="edit_course_code" name="course_code" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_department_id">Department *</label>
+                        <select id="edit_department_id" name="department_id" required>
+                            <option value="">Select Department</option>
+                            <?php foreach ($departments as $dept): ?>
+                            <option value="<?php echo $dept['id']; ?>">
+                                <?php echo htmlspecialchars($dept['name'] . ' (' . $dept['code'] . ')'); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_course_name">Course Name *</label>
+                        <input type="text" id="edit_course_name" name="course_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_credits">Credits *</label>
+                        <input type="number" id="edit_credits" name="credits" min="1" max="6" required>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit_description">Description</label>
