@@ -2,8 +2,6 @@ composer require phpmailer/phpmailer
 
 # Visit: https://getcomposer.org/download/
 
+NEED TO DO
+manage_departments.php TO BECOME DYNAMIC
 
-NEED TO DO 
-FIX THE SENDING ENROLLMENT VERIFICATION
-UPDATE THE PROGRAM TO HAVE A SECTION
-ADD THAT CAN ADD FOR MULTIPLE SUBJECT TO ENROLL REFERENCE FROM THE ISAT U

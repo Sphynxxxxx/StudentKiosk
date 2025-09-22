@@ -9,113 +9,113 @@ $message_type = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
-            case 'add_course':
+            case 'add_subject':
                 try {
                     $stmt = $pdo->prepare("
-                        INSERT INTO courses (course_code, course_name, description, credits, department_id, status) 
+                        INSERT INTO subjects (course_code, subject_name, description, credits, department_id, status) 
                         VALUES (?, ?, ?, ?, ?, 'active')
                     ");
                     $stmt->execute([
                         $_POST['course_code'],
-                        $_POST['course_name'],
+                        $_POST['subject_name'],
                         $_POST['description'],
                         $_POST['credits'],
                         $_POST['department_id']
                     ]);
-                    $message = 'Course added successfully!';
+                    $message = 'Subject added successfully!';
                     $message_type = 'success';
                 } catch (PDOException $e) {
                     if ($e->getCode() == 23000) {
-                        $message = 'Course code already exists!';
+                        $message = 'Subject code already exists!';
                         $message_type = 'error';
                     } else {
-                        $message = 'Error adding course: ' . $e->getMessage();
+                        $message = 'Error adding subject: ' . $e->getMessage();
                         $message_type = 'error';
                     }
                 }
                 break;
                 
-            case 'edit_course':
+            case 'edit_subject':
                 try {
                     $stmt = $pdo->prepare("
-                        UPDATE courses 
-                        SET course_code = ?, course_name = ?, description = ?, credits = ?, department_id = ?
+                        UPDATE subjects 
+                        SET course_code = ?, subject_name = ?, description = ?, credits = ?, department_id = ?
                         WHERE id = ?
                     ");
                     $stmt->execute([
                         $_POST['course_code'],
-                        $_POST['course_name'],
+                        $_POST['subject_name'],
                         $_POST['description'],
                         $_POST['credits'],
                         $_POST['department_id'],
-                        $_POST['course_id']
+                        $_POST['subject_id']
                     ]);
-                    $message = 'Course updated successfully!';
+                    $message = 'Subject updated successfully!';
                     $message_type = 'success';
                 } catch (PDOException $e) {
                     if ($e->getCode() == 23000) {
-                        $message = 'Course code already exists!';
+                        $message = 'Subject code already exists!';
                         $message_type = 'error';
                     } else {
-                        $message = 'Error updating course: ' . $e->getMessage();
+                        $message = 'Error updating subject: ' . $e->getMessage();
                         $message_type = 'error';
                     }
                 }
                 break;
                 
-            case 'delete_course':
+            case 'delete_subject':
                 try {
-                    // Check if course is assigned to any class sections
-                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM class_sections WHERE course_id = ?");
-                    $stmt->execute([$_POST['course_id']]);
+                    // Check if subject is assigned to any class sections
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM class_sections WHERE subject_id = ?");
+                    $stmt->execute([$_POST['subject_id']]);
                     $section_count = $stmt->fetchColumn();
                     
                     if ($section_count > 0) {
-                        $message = 'Cannot delete course: It is assigned to ' . $section_count . ' class section(s). Please remove all assignments first.';
+                        $message = 'Cannot delete subject: It is assigned to ' . $section_count . ' class section(s). Please remove all assignments first.';
                         $message_type = 'error';
                     } else {
-                        // Check if course has any enrolled students (if you have an enrollments table)
-                        // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE course_id = ?");
-                        // $stmt->execute([$_POST['course_id']]);
+                        // Check if subject has any enrolled students (if you have an enrollments table)
+                        // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE subject_id = ?");
+                        // $stmt->execute([$_POST['subject_id']]);
                         // $enrollment_count = $stmt->fetchColumn();
                         
                         // if ($enrollment_count > 0) {
-                        //     $message = 'Cannot delete course: It has enrolled students. Please unenroll all students first.';
+                        //     $message = 'Cannot delete subject: It has enrolled students. Please unenroll all students first.';
                         //     $message_type = 'error';
                         // } else {
                             // Safe to delete
-                            $stmt = $pdo->prepare("DELETE FROM courses WHERE id = ?");
-                            $stmt->execute([$_POST['course_id']]);
-                            $message = 'Course deleted successfully!';
+                            $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ?");
+                            $stmt->execute([$_POST['subject_id']]);
+                            $message = 'Subject deleted successfully!';
                             $message_type = 'success';
                         // }
                     }
                 } catch (PDOException $e) {
-                    $message = 'Error deleting course: ' . $e->getMessage();
+                    $message = 'Error deleting subject: ' . $e->getMessage();
                     $message_type = 'error';
                 }
                 break;
                 
             case 'assign_faculty':
                 try {
-                    // Check if class section already exists for this course and academic year
+                    // Check if class section already exists for this subject and academic year
                     $stmt = $pdo->prepare("
                         SELECT id FROM class_sections 
-                        WHERE course_id = ? AND academic_year_id = ? AND section_name = ?
+                        WHERE subject_id = ? AND academic_year_id = ? AND section_name = ?
                     ");
-                    $stmt->execute([$_POST['course_id'], $_POST['academic_year_id'], $_POST['section_name']]);
+                    $stmt->execute([$_POST['subject_id'], $_POST['academic_year_id'], $_POST['section_name']]);
                     
                     if ($stmt->rowCount() > 0) {
-                        $message = 'Section already exists for this course and academic year!';
+                        $message = 'Section already exists for this subject and academic year!';
                         $message_type = 'error';
                     } else {
                         // Create new class section
                         $stmt = $pdo->prepare("
-                            INSERT INTO class_sections (course_id, faculty_id, academic_year_id, section_name, schedule, room, max_students, status) 
+                            INSERT INTO class_sections (subject_id, faculty_id, academic_year_id, section_name, schedule, room, max_students, status) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
                         ");
                         $stmt->execute([
-                            $_POST['course_id'],
+                            $_POST['subject_id'],
                             $_POST['faculty_id'],
                             $_POST['academic_year_id'],
                             $_POST['section_name'],
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $_POST['room'],
                             $_POST['max_students']
                         ]);
-                        $message = 'Faculty assigned to course successfully!';
+                        $message = 'Faculty assigned to subject successfully!';
                         $message_type = 'success';
                     }
                 } catch (PDOException $e) {
@@ -158,15 +158,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get all courses with department information
+// Get all subjects with department information
 $stmt = $pdo->prepare("
-    SELECT c.*, d.name as department_name, d.code as department_code
-    FROM courses c
-    JOIN departments d ON c.department_id = d.id
-    ORDER BY c.course_code
+    SELECT s.*, d.name as department_name, d.code as department_code
+    FROM subjects s
+    JOIN departments d ON s.department_id = d.id
+    ORDER BY s.course_code
 ");
 $stmt->execute();
-$courses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all departments for dropdown
 $stmt = $pdo->prepare("SELECT id, name, code FROM departments WHERE status = 'active' ORDER BY name");
@@ -197,14 +197,14 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get class sections with faculty assignments
 $stmt = $pdo->prepare("
-    SELECT cs.*, c.course_code, c.course_name,
+    SELECT cs.*, s.course_code, s.subject_name,
            CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
            CONCAT(ay.year_start, '-', ay.year_end, ' (', ay.semester, ' Semester)') as academic_year
     FROM class_sections cs
-    JOIN courses c ON cs.course_id = c.id
+    JOIN subjects s ON cs.subject_id = s.id
     JOIN users u ON cs.faculty_id = u.id
     JOIN academic_years ay ON cs.academic_year_id = ay.id
-    ORDER BY c.course_code, cs.section_name
+    ORDER BY s.course_code, cs.section_name
 ");
 $stmt->execute();
 $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -215,10 +215,10 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Courses - ISATU Kiosk System</title>
+    <title>Manage Subjects - ISATU Kiosk System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin_dashboard.css" rel="stylesheet">
-    <link href="../assets/css/manage_courses.css" rel="stylesheet">
+    <link href="../assets/css/manage_subjects.css" rel="stylesheet">
     
 </head>
 <body>
@@ -238,11 +238,11 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <?php endif; ?>
 
                 <div class="tabs">
-                    <button class="tab-button active" onclick="openTab(event, 'add-course')">
-                        <i class="fas fa-plus"></i> Add Course
+                    <button class="tab-button active" onclick="openTab(event, 'add-subject')">
+                        <i class="fas fa-plus"></i> Add Subject
                     </button>
-                    <button class="tab-button" onclick="openTab(event, 'manage-courses')">
-                        <i class="fas fa-list"></i> Manage Courses
+                    <button class="tab-button" onclick="openTab(event, 'manage-subjects')">
+                        <i class="fas fa-list"></i> Manage Subjects
                     </button>
                     <button class="tab-button" onclick="openTab(event, 'assign-faculty')">
                         <i class="fas fa-user-tie"></i> Assign Faculty
@@ -252,20 +252,20 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </button>
                 </div>
 
-                <!-- Add Course Tab -->
-                <div id="add-course" class="tab-content active">
+                <!-- Add Subject Tab -->
+                <div id="add-subject" class="tab-content active">
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-plus-circle"></i> Add New Course
+                                <i class="fas fa-plus-circle"></i> Add New Subject
                             </h3>
                         </div>
                         <form method="POST" action="">
-                            <input type="hidden" name="action" value="add_course">
+                            <input type="hidden" name="action" value="add_subject">
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="course_code">Course Code *</label>
+                                    <label for="course_code">Subject Code *</label>
                                     <input type="text" id="course_code" name="course_code" required>
                                 </div>
                                 
@@ -284,8 +284,8 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="course_name">Course Name *</label>
-                                    <input type="text" id="course_name" name="course_name" required>
+                                    <label for="subject_name">Subject Name *</label>
+                                    <input type="text" id="subject_name" name="subject_name" required>
                                 </div>
                                 
                                 <div class="form-group">
@@ -297,36 +297,36 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="description">Description</label>
-                                    <textarea id="description" name="description" placeholder="Course description (optional)"></textarea>
+                                    <textarea id="description" name="description" placeholder="Subject description (optional)"></textarea>
                                 </div>
                             </div>
 
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Course
+                                <i class="fas fa-plus"></i> Add Subject
                             </button>
                         </form>
                     </div>
                 </div>
 
-                <!-- Manage Courses Tab -->
-                <div id="manage-courses" class="tab-content">
+                <!-- Manage Subjects Tab -->
+                <div id="manage-subjects" class="tab-content">
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-list"></i> All Courses
+                                <i class="fas fa-list"></i> All Subjects
                             </h3>
                         </div>
                         
                         <div class="search-bar">
-                            <input type="text" id="courseSearch" placeholder="Search courses..." onkeyup="filterTable('courseSearch', 'coursesTable')">
+                            <input type="text" id="subjectSearch" placeholder="Search subjects..." onkeyup="filterTable('subjectSearch', 'subjectsTable')">
                         </div>
                         
                         <div class="table-container">
-                            <table class="table" id="coursesTable">
+                            <table class="table" id="subjectsTable">
                                 <thead>
                                     <tr>
-                                        <th>Course Code</th>
-                                        <th>Course Name</th>
+                                        <th>Subject Code</th>
+                                        <th>Subject Name</th>
                                         <th>Department</th>
                                         <th>Credits</th>
                                         <th>Status</th>
@@ -334,27 +334,27 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($courses as $course): ?>
+                                    <?php foreach ($subjects as $subject): ?>
                                     <tr>
-                                        <td><strong><?php echo htmlspecialchars($course['course_code']); ?></strong></td>
-                                        <td><?php echo htmlspecialchars($course['course_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($course['department_name']); ?></td>
-                                        <td><?php echo $course['credits']; ?></td>
+                                        <td><strong><?php echo htmlspecialchars($subject['course_code']); ?></strong></td>
+                                        <td><?php echo htmlspecialchars($subject['subject_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($subject['department_name']); ?></td>
+                                        <td><?php echo $subject['credits']; ?></td>
                                         <td>
-                                            <span class="status-badge status-<?php echo $course['status']; ?>">
-                                                <?php echo ucfirst($course['status']); ?>
+                                            <span class="status-badge status-<?php echo $subject['status']; ?>">
+                                                <?php echo ucfirst($subject['status']); ?>
                                             </span>
                                         </td>
                                         <td>
                                             <div class="action-buttons">
-                                                <button class="btn btn-warning btn-sm" onclick="editCourse(<?php echo htmlspecialchars(json_encode($course)); ?>)">
+                                                <button class="btn btn-warning btn-sm" onclick="editSubject(<?php echo htmlspecialchars(json_encode($subject)); ?>)">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </button>
                                                 <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="action" value="delete_course">
-                                                    <input type="hidden" name="course_id" value="<?php echo $course['id']; ?>">
+                                                    <input type="hidden" name="action" value="delete_subject">
+                                                    <input type="hidden" name="subject_id" value="<?php echo $subject['id']; ?>">
                                                     <button type="submit" class="btn btn-danger btn-sm" 
-                                                            onclick="return confirm('Are you sure you want to DELETE this course? This action cannot be undone.\n\nCourse: <?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_name']); ?>')">
+                                                            onclick="return confirm('Are you sure you want to DELETE this subject? This action cannot be undone.\n\nSubject: <?php echo htmlspecialchars($subject['course_code'] . ' - ' . $subject['subject_name']); ?>')">
                                                         <i class="fas fa-trash"></i> Delete
                                                     </button>
                                                 </form>
@@ -373,7 +373,7 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-user-tie"></i> Assign Faculty to Course
+                                <i class="fas fa-user-tie"></i> Assign Faculty to Subject
                             </h3>
                         </div>
                         <form method="POST" action="">
@@ -381,13 +381,13 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="assign_course_id">Course *</label>
-                                    <select id="assign_course_id" name="course_id" required>
-                                        <option value="">Select Course</option>
-                                        <?php foreach ($courses as $course): ?>
-                                            <?php if ($course['status'] === 'active'): ?>
-                                            <option value="<?php echo $course['id']; ?>">
-                                                <?php echo htmlspecialchars($course['course_code'] . ' - ' . $course['course_name']); ?>
+                                    <label for="assign_subject_id">Subject *</label>
+                                    <select id="assign_subject_id" name="subject_id" required>
+                                        <option value="">Select Subject</option>
+                                        <?php foreach ($subjects as $subject): ?>
+                                            <?php if ($subject['status'] === 'active'): ?>
+                                            <option value="<?php echo $subject['id']; ?>">
+                                                <?php echo htmlspecialchars($subject['course_code'] . ' - ' . $subject['subject_name']); ?>
                                             </option>
                                             <?php endif; ?>
                                         <?php endforeach; ?>
@@ -456,83 +456,87 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <!-- Class Sections Tab -->
-<div id="class-sections" class="tab-content">
-    <div class="dashboard-card">
-        <div class="card-header">
-            <h3 class="card-title">
-                <i class="fas fa-users"></i> Class Sections
-            </h3>
-        </div>
-        
-        <div class="search-bar">
-            <input type="text" id="sectionSearch" placeholder="Search class sections..." onkeyup="filterTable('sectionSearch', 'sectionsTable')">
-        </div>
-        
-        <div class="table-container">
-            <table class="table" id="sectionsTable">
-                <thead>
-                    <tr>
-                        <th>Course</th>
-                        <th>Section</th>
-                        <th>Faculty</th>
-                        <th>Academic Year</th>
-                        <th>Schedule</th>
-                        <th>Room</th>
-                        <th>Max Students</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($class_sections as $section): ?>
-                    <tr>
-                        <td>
-                            <strong><?php echo htmlspecialchars($section['course_code']); ?></strong><br>
-                            <small><?php echo htmlspecialchars($section['course_name']); ?></small>
-                        </td>
-                        <td><?php echo htmlspecialchars($section['section_name']); ?></td>
-                        <td><?php echo htmlspecialchars($section['faculty_name']); ?></td>
-                        <td><?php echo htmlspecialchars($section['academic_year']); ?></td>
-                        <td><?php echo htmlspecialchars($section['schedule'] ?: 'Not set'); ?></td>
-                        <td><?php echo htmlspecialchars($section['room'] ?: 'Not set'); ?></td>
-                        <td><?php echo $section['max_students']; ?></td>
-                        <td>
-                            <span class="status-badge status-<?php echo $section['status']; ?>">
-                                <?php echo ucfirst($section['status']); ?>
-                            </span>
-                        </td>
-                        <td>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="action" value="delete_section">
-                                <input type="hidden" name="section_id" value="<?php echo $section['id']; ?>">
-                                <button type="submit" class="btn btn-danger btn-sm" 
-                                        onclick="return confirm('Are you sure you want to DELETE this class section? This action cannot be undone.\n\nCourse: <?php echo htmlspecialchars($section['course_code'] . ' - ' . $section['course_name']); ?>\nSection: <?php echo htmlspecialchars($section['section_name']); ?>\nFaculty: <?php echo htmlspecialchars($section['faculty_name']); ?>')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                <div id="class-sections" class="tab-content">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-users"></i> Class Sections
+                            </h3>
+                        </div>
+                        
+                        <div class="search-bar">
+                            <input type="text" id="sectionSearch" placeholder="Search class sections..." onkeyup="filterTable('sectionSearch', 'sectionsTable')">
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="table" id="sectionsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Section</th>
+                                        <th>Faculty</th>
+                                        <th>Academic Year</th>
+                                        <th>Schedule</th>
+                                        <th>Room</th>
+                                        <th>Max Students</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($class_sections as $section): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?php echo htmlspecialchars($section['course_code']); ?></strong><br>
+                                            <small><?php echo htmlspecialchars($section['subject_name']); ?></small>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($section['section_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($section['faculty_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($section['academic_year']); ?></td>
+                                        <td><?php echo htmlspecialchars($section['schedule'] ?: 'Not set'); ?></td>
+                                        <td><?php echo htmlspecialchars($section['room'] ?: 'Not set'); ?></td>
+                                        <td><?php echo $section['max_students']; ?></td>
+                                        <td>
+                                            <span class="status-badge status-<?php echo $section['status']; ?>">
+                                                <?php echo ucfirst($section['status']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="action" value="delete_section">
+                                                <input type="hidden" name="section_id" value="<?php echo $section['id']; ?>">
+                                                <button type="submit" class="btn btn-danger btn-sm" 
+                                                        onclick="return confirm('Are you sure you want to DELETE this class section? This action cannot be undone.\n\nSubject: <?php echo htmlspecialchars($section['course_code'] . ' - ' . $section['subject_name']); ?>\nSection: <?php echo htmlspecialchars($section['section_name']); ?>\nFaculty: <?php echo htmlspecialchars($section['faculty_name']); ?>')">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
-</div>
 
-    <!-- Edit Course Modal -->
-    <div id="editCourseModal" class="modal">
+    <!-- Edit Subject Modal -->
+    <div id="editSubjectModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Edit Course</h2>
-                <span class="close" onclick="closeModal('editCourseModal')">&times;</span>
+                <h2>Edit Subject</h2>
+                <span class="close" onclick="closeModal('editSubjectModal')">&times;</span>
             </div>
             <form method="POST" action="">
-                <input type="hidden" name="action" value="edit_course">
-                <input type="hidden" id="edit_course_id" name="course_id">
+                <input type="hidden" name="action" value="edit_subject">
+                <input type="hidden" id="edit_subject_id" name="subject_id">
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_course_code">Course Code *</label>
+                        <label for="edit_course_code">Subject Code *</label>
                         <input type="text" id="edit_course_code" name="course_code" required>
                     </div>
                     
@@ -551,8 +555,8 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_course_name">Course Name *</label>
-                        <input type="text" id="edit_course_name" name="course_name" required>
+                        <label for="edit_subject_name">Subject Name *</label>
+                        <input type="text" id="edit_subject_name" name="subject_name" required>
                     </div>
                     
                     <div class="form-group">
@@ -569,9 +573,9 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <div style="text-align: right; margin-top: 20px;">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editCourseModal')">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editSubjectModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Update Course
+                        <i class="fas fa-save"></i> Update Subject
                     </button>
                 </div>
             </form>
@@ -600,15 +604,15 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
             evt.currentTarget.classList.add("active");
         }
 
-        function editCourse(course) {
-            document.getElementById('edit_course_id').value = course.id;
-            document.getElementById('edit_course_code').value = course.course_code;
-            document.getElementById('edit_course_name').value = course.course_name;
-            document.getElementById('edit_credits').value = course.credits;
-            document.getElementById('edit_department_id').value = course.department_id;
-            document.getElementById('edit_description').value = course.description || '';
+        function editSubject(subject) {
+            document.getElementById('edit_subject_id').value = subject.id;
+            document.getElementById('edit_course_code').value = subject.course_code;
+            document.getElementById('edit_subject_name').value = subject.subject_name;
+            document.getElementById('edit_credits').value = subject.credits;
+            document.getElementById('edit_department_id').value = subject.department_id;
+            document.getElementById('edit_description').value = subject.description || '';
             
-            document.getElementById('editCourseModal').style.display = 'block';
+            document.getElementById('editSubjectModal').style.display = 'block';
         }
 
         function closeModal(modalId) {
@@ -652,9 +656,9 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Form validation
         document.addEventListener('DOMContentLoaded', function() {
-            // Course code validation
-            const courseCodeInputs = document.querySelectorAll('input[name="course_code"]');
-            courseCodeInputs.forEach(input => {
+            // Subject code validation
+            const subjectCodeInputs = document.querySelectorAll('input[name="course_code"]');
+            subjectCodeInputs.forEach(input => {
                 input.addEventListener('input', function() {
                     this.value = this.value.replace(/[^A-Za-z0-9\s]/g, '').toUpperCase();
                 });

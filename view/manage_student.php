@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (isset($_POST['send_email']) && $_POST['send_email'] == '1') {
                             try {
                                 $emailService = new EmailService();
-                                $emailResult = $emailService->sendStudentEnrollmentEmail($studentData, $plain_password);
+                                $emailResult = $emailService->sendStudentWelcomeEmail($studentData, $plain_password);
                                 
                                 if ($emailResult['success']) {
                                     $message = 'Student added successfully! Username: ' . $username . '. ' . $emailResult['message'];
@@ -714,11 +714,11 @@ try {
                             <label for="year_level">Year Level *</label>
                             <select id="year_level" name="year_level" required onchange="loadSections()">
                                 <option value="">Select Year Level</option>
-                                <option value="1st">1st Year</option>
-                                <option value="2nd">2nd Year</option>
-                                <option value="3rd">3rd Year</option>
-                                <option value="4th">4th Year</option>
-                                <option value="5th">5th Year</option>
+                                <?php
+                                require_once '../includes/YearLevelHelper.php';
+                                // Year levels will be populated by JavaScript when program is selected
+                                ?>
+                            </select>
                             </select>
                         </div>
                         
@@ -841,6 +841,19 @@ try {
                     <div class="form-group">
                         <label for="edit_student_id">Student ID *</label>
                         <input type="text" id="edit_student_id_field" name="student_id" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit_year_level">Year Level *</label>
+                        <select id="edit_year_level" name="year_level" required>
+                            <option value="">Select Year Level</option>
+                            <?php
+                            foreach (YearLevelHelper::getYearLevelOptions() as $option) {
+                                echo '<option value="' . htmlspecialchars($option['value']) . '">' . 
+                                     htmlspecialchars($option['label']) . '</option>';
+                            }
+                            ?>
+                        </select>
                     </div>
                     
                     <div class="form-group">
@@ -1082,6 +1095,7 @@ try {
             
             // Populate edit form
             document.getElementById('edit_student_id').value = student.id;
+            document.getElementById('edit_year_level').value = student.year_level;
             document.getElementById('edit_first_name').value = student.first_name;
             document.getElementById('edit_last_name').value = student.last_name;
             document.getElementById('edit_email').value = student.email;
@@ -1408,6 +1422,41 @@ try {
             document.getElementById('selectAll').checked = false;
             updateBulkActions();
         }
+
+        // Function to load year levels based on selected program
+        function loadYearLevels(programId, callback = null) {
+            if (!programId) {
+                const yearLevelSelect = document.getElementById('year_level');
+                yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+                return;
+            }
+
+            fetch(`../api/get_year_levels.php?program_id=${programId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const yearLevelSelect = document.getElementById('year_level');
+                        yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+                        
+                        data.yearLevels.forEach(option => {
+                            const optionElement = document.createElement('option');
+                            optionElement.value = option.value;
+                            optionElement.textContent = option.label;
+                            yearLevelSelect.appendChild(optionElement);
+                        });
+
+                        if (callback) callback();
+                    }
+                })
+                .catch(error => console.error('Error loading year levels:', error));
+        }
+
+        // Update year levels when program changes
+        document.getElementById('program_id').addEventListener('change', function() {
+            loadYearLevels(this.value);
+            document.getElementById('year_level').value = ''; // Reset year level
+            document.getElementById('section_id').innerHTML = '<option value="">Select Section</option>'; // Reset section
+        });
 
         function loadSections() {
             const programId = document.getElementById('program_id').value;

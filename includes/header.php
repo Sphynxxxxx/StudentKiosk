@@ -45,7 +45,7 @@ $page_info = [
         'description' => 'Add, edit, and manage course offerings'
     ],
     'manage_departments' => [
-        'title' => 'Departments',
+        'title' => 'Colleges & Courses',
         'icon' => 'fas fa-building',
         'description' => 'Manage academic departments'
     ],

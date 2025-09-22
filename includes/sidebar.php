@@ -65,16 +65,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <li class="menu-divider"></li>
         
         <li>
-            <a href="manage_courses.php" class="<?php echo ($current_page == 'manage_courses.php') ? 'active' : ''; ?>">
+            <a href="manage_subjects.php" class="<?php echo ($current_page == 'manage_subjects.php') ? 'active' : ''; ?>">
                 <i class="fas fa-book"></i>
-                <span>Manage Courses</span>
+                <span>Manage Subjects</span>
             </a>
         </li>
         
         <li>
             <a href="manage_departments.php" class="<?php echo ($current_page == 'manage_departments.php') ? 'active' : ''; ?>">
                 <i class="fas fa-building"></i>
-                <span>Departments</span>
+                <span>College&Courses</span>
             </a>
         </li>
         

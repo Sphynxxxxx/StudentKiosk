@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$existing_user['id'], $_POST['class_section_id']]);
                         
                         if ($stmt->rowCount() > 0) {
-                            $message = 'Student is already enrolled in this course section!';
+                            $message = 'Student is already enrolled in this subject section!';
                             $message_type = 'error';
                         } else {
                             // Check if section is full
@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$_POST['student_id']]);
                         $message = 'Student and user account deleted successfully!';
                     } else {
-                        $message = 'Student removed from course successfully!';
+                        $message = 'Student removed from subject successfully!';
                     }
                     
                     $message_type = 'success';
@@ -171,12 +171,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 try {
-    // Get faculty's assigned courses with class sections
+    // Get faculty's assigned subjects with class sections
     $stmt = $pdo->prepare("
         SELECT 
-            c.id as course_id,
-            c.course_code,
-            c.course_name,
+            s.id as subject_id,
+            s.course_code,
+            s.subject_name,
             cs.id as section_id,
             cs.section_name,
             cs.schedule,
@@ -186,20 +186,20 @@ try {
             ay.year_end,
             ay.semester,
             COUNT(e.student_id) as enrolled_count
-        FROM courses c
-        INNER JOIN class_sections cs ON c.id = cs.course_id
+        FROM subjects s
+        INNER JOIN class_sections cs ON s.id = cs.subject_id
         INNER JOIN academic_years ay ON cs.academic_year_id = ay.id
         LEFT JOIN enrollments e ON cs.id = e.class_section_id AND e.status = 'enrolled'
         WHERE cs.faculty_id = ? AND ay.is_active = 1 AND cs.status = 'active'
-        GROUP BY c.id, cs.id
-        ORDER BY c.course_code, cs.section_name
+        GROUP BY s.id, cs.id
+        ORDER BY s.course_code, cs.section_name
     ");
     $stmt->execute([$_SESSION['faculty_id']]);
-    $courses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
     error_log("Faculty dashboard error: " . $e->getMessage());
-    $courses = [];
+    $subjects = [];
 }
 ?>
 
@@ -261,67 +261,67 @@ try {
         <div class="nav-content">
             <div class="nav-title">
                 <i class="fas fa-chalkboard-teacher"></i>
-                Course Management System
+                Subject Management System
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
     <div class="main-container">
-        <!-- Left Panel - Courses List -->
+        <!-- Left Panel - Subjects List -->
         <div class="card courses-panel">
             <div class="card-header">
                 <h2 class="card-title">
                     <i class="fas fa-book"></i>
-                    ASSIGNED COURSES
+                    ASSIGNED SUBJECTS
                 </h2>
                 <div class="card-subtitle">Academic Year <?php echo date('Y'); ?>-<?php echo date('Y')+1; ?></div>
             </div>
             
-            <?php if (empty($courses)): ?>
+            <?php if (empty($subjects)): ?>
                 <div class="empty-state">
                     <i class="fas fa-book-open"></i>
-                    <h3>No Courses Assigned</h3>
-                    <p>You currently have no courses assigned for this academic year.</p>
+                    <h3>No Subjects Assigned</h3>
+                    <p>You currently have no subjects assigned for this academic year.</p>
                 </div>
             <?php else: ?>
                 <!-- Statistics -->
                 <div class="stats-grid">
                     <div class="stat-item">
-                        <div class="stat-number"><?php echo count($courses); ?></div>
-                        <div class="stat-label">Total Courses</div>
+                        <div class="stat-number"><?php echo count($subjects); ?></div>
+                        <div class="stat-label">Total Subjects</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-number"><?php echo array_sum(array_column($courses, 'enrolled_count')); ?></div>
+                        <div class="stat-number"><?php echo array_sum(array_column($subjects, 'enrolled_count')); ?></div>
                         <div class="stat-label">Total Students</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-number"><?php echo array_sum(array_column($courses, 'max_students')); ?></div>
+                        <div class="stat-number"><?php echo array_sum(array_column($subjects, 'max_students')); ?></div>
                         <div class="stat-label">Max Capacity</div>
                     </div>
                 </div>
 
                 <div class="subjects-list">
-                    <?php foreach ($courses as $course): ?>
-                        <div class="subject-item" data-section-id="<?php echo $course['section_id']; ?>">
-                            <div class="subject-header" onclick="selectCourse(<?php echo $course['section_id']; ?>, '<?php echo htmlspecialchars($course['course_code']); ?>', '<?php echo htmlspecialchars($course['course_name']); ?>')">
+                    <?php foreach ($subjects as $subject): ?>
+                        <div class="subject-item" data-section-id="<?php echo $subject['section_id']; ?>">
+                            <div class="subject-header" onclick="selectSubject(<?php echo $subject['section_id']; ?>, '<?php echo htmlspecialchars($subject['course_code']); ?>', '<?php echo htmlspecialchars($subject['subject_name']); ?>')">
                                 <div class="subject-info">
-                                    <div class="course-code"><?php echo htmlspecialchars($course['course_code']); ?></div>
-                                    <div class="course-name"><?php echo htmlspecialchars($course['course_name']); ?></div>
+                                    <div class="course-code"><?php echo htmlspecialchars($subject['course_code']); ?></div>
+                                    <div class="course-name"><?php echo htmlspecialchars($subject['subject_name']); ?></div>
                                     <div class="subject-meta">
                                         <div class="meta-item">
                                             <i class="fas fa-layer-group"></i>
-                                            <span>Section <?php echo htmlspecialchars($course['section_name']); ?></span>
+                                            <span>Section <?php echo htmlspecialchars($subject['section_name']); ?></span>
                                         </div>
-                                        <?php if ($course['room']): ?>
+                                        <?php if ($subject['room']): ?>
                                             <div class="meta-item">
                                                 <i class="fas fa-door-open"></i>
-                                                <span><?php echo htmlspecialchars($course['room']); ?></span>
+                                                <span><?php echo htmlspecialchars($subject['room']); ?></span>
                                             </div>
                                         <?php endif; ?>
                                         <div class="meta-item">
                                             <span class="enrollment-count">
-                                                <?php echo $course['enrolled_count']; ?>/<?php echo $course['max_students']; ?>
+                                                <?php echo $subject['enrolled_count']; ?>/<?php echo $subject['max_students']; ?>
                                             </span>
                                         </div>
                                     </div>
@@ -330,14 +330,14 @@ try {
                                     <button class="view-btn">
                                         <i class="fas fa-users"></i> Manage Students
                                     </button>
-                                    <?php if ($course['schedule']): ?>
-                                        <div class="schedule-text"><?php echo htmlspecialchars($course['schedule']); ?></div>
+                                    <?php if ($subject['schedule']): ?>
+                                        <div class="schedule-text"><?php echo htmlspecialchars($subject['schedule']); ?></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
                             
                             <!-- Enrollment Section - Hidden by default -->
-                            <div class="enrollment-section" id="enrollment-<?php echo $course['section_id']; ?>" style="display: none;">
+                            <div class="enrollment-section" id="enrollment-<?php echo $subject['section_id']; ?>" style="display: none;">
                                 <div class="enrollment-header">
                                     <div class="enrollment-title">
                                         <i class="fas fa-user-plus"></i>
@@ -345,12 +345,12 @@ try {
                                     </div>
                                     <div class="capacity-indicator">
                                         <?php 
-                                        $percentage = ($course['enrolled_count'] / $course['max_students']) * 100;
+                                        $percentage = ($subject['enrolled_count'] / $subject['max_students']) * 100;
                                         $capacity_class = 'capacity-normal';
                                         if ($percentage >= 90) $capacity_class = 'capacity-full';
                                         elseif ($percentage >= 75) $capacity_class = 'capacity-warning';
                                         ?>
-                                        <span><?php echo $course['enrolled_count']; ?>/<?php echo $course['max_students']; ?></span>
+                                        <span><?php echo $subject['enrolled_count']; ?>/<?php echo $subject['max_students']; ?></span>
                                         <div class="capacity-bar">
                                             <div class="capacity-fill <?php echo $capacity_class; ?>" style="width: <?php echo $percentage; ?>%"></div>
                                         </div>
@@ -360,31 +360,31 @@ try {
                                 <div class="enroll-student-form">
                                     <form method="POST" action="">
                                         <input type="hidden" name="action" value="enroll_student">
-                                        <input type="hidden" name="class_section_id" value="<?php echo $course['section_id']; ?>">
+                                        <input type="hidden" name="class_section_id" value="<?php echo $subject['section_id']; ?>">
                                         
                                         <div class="form-row">
                                             <div class="form-group">
-                                                <label for="student_id_<?php echo $course['section_id']; ?>">Student ID *</label>
+                                                <label for="student_id_<?php echo $subject['section_id']; ?>">Student ID *</label>
                                                 <input type="text" 
-                                                       id="student_id_<?php echo $course['section_id']; ?>" 
+                                                       id="student_id_<?php echo $subject['section_id']; ?>" 
                                                        name="student_id" 
                                                        placeholder="Enter student ID"
                                                        required>
                                             </div>
                                             
                                             <div class="form-group">
-                                                <label for="first_name_<?php echo $course['section_id']; ?>">First Name *</label>
+                                                <label for="first_name_<?php echo $subject['section_id']; ?>">First Name *</label>
                                                 <input type="text" 
-                                                       id="first_name_<?php echo $course['section_id']; ?>" 
+                                                       id="first_name_<?php echo $subject['section_id']; ?>" 
                                                        name="first_name" 
                                                        placeholder="Enter first name"
                                                        required>
                                             </div>
                                             
                                             <div class="form-group">
-                                                <label for="last_name_<?php echo $course['section_id']; ?>">Last Name *</label>
+                                                <label for="last_name_<?php echo $subject['section_id']; ?>">Last Name *</label>
                                                 <input type="text" 
-                                                       id="last_name_<?php echo $course['section_id']; ?>" 
+                                                       id="last_name_<?php echo $subject['section_id']; ?>" 
                                                        name="last_name" 
                                                        placeholder="Enter last name"
                                                        required>
@@ -393,18 +393,18 @@ try {
                                         
                                         <div class="form-row">
                                             <div class="form-group">
-                                                <label for="middle_initial_<?php echo $course['section_id']; ?>">Middle Initial</label>
+                                                <label for="middle_initial_<?php echo $subject['section_id']; ?>">Middle Initial</label>
                                                 <input type="text" 
-                                                       id="middle_initial_<?php echo $course['section_id']; ?>" 
+                                                       id="middle_initial_<?php echo $subject['section_id']; ?>" 
                                                        name="middle_initial" 
                                                        placeholder="M.I."
                                                        maxlength="2">
                                             </div>
                                             
                                             <div class="form-group">
-                                                <label for="email_<?php echo $course['section_id']; ?>">Email *</label>
+                                                <label for="email_<?php echo $subject['section_id']; ?>">Email *</label>
                                                 <input type="email" 
-                                                       id="email_<?php echo $course['section_id']; ?>" 
+                                                       id="email_<?php echo $subject['section_id']; ?>" 
                                                        name="email" 
                                                        placeholder="student@example.com"
                                                        required>
@@ -429,16 +429,16 @@ try {
             <div class="card-header">
                 <h2 class="card-title">
                     <i class="fas fa-users"></i>
-                    <span id="selectedCourseTitle">ENROLLED STUDENTS</span>
+                    <span id="selectedSubjectTitle">ENROLLED STUDENTS</span>
                 </h2>
-                <div class="card-subtitle" id="selectedCourseSubtitle">Select a course to view students</div>
+                <div class="card-subtitle" id="selectedSubjectSubtitle">Select a subject to view students</div>
             </div>
             
             <div class="students-content" id="studentsContent">
                 <div class="students-placeholder">
                     <i class="fas fa-mouse-pointer"></i>
-                    <h3>Select a Course</h3>
-                    <p>Click on a course from the left panel to view and manage enrolled students.</p>
+                    <h3>Select a Subject</h3>
+                    <p>Click on a subject from the left panel to view and manage enrolled students.</p>
                 </div>
             </div>
         </div>
@@ -509,7 +509,7 @@ try {
         });
         <?php endif; ?>
 
-        function selectCourse(sectionId, courseCode, courseName) {
+        function selectSubject(sectionId, subjectCode, subjectName) {
             // Hide all enrollment sections first
             document.querySelectorAll('.enrollment-section').forEach(section => {
                 section.style.display = 'none';
@@ -523,20 +523,20 @@ try {
             // Add active class to selected item
             document.querySelector(`[data-section-id="${sectionId}"]`).classList.add('active');
             
-            // Show enrollment section for selected course
+            // Show enrollment section for selected subject
             document.getElementById(`enrollment-${sectionId}`).style.display = 'block';
             
             // Update right panel title
-            document.getElementById('selectedCourseTitle').textContent = `ENROLLED STUDENTS - ${courseCode}`;
-            document.getElementById('selectedCourseSubtitle').textContent = courseName;
+            document.getElementById('selectedSubjectTitle').textContent = `ENROLLED STUDENTS - ${subjectCode}`;
+            document.getElementById('selectedSubjectSubtitle').textContent = subjectName;
             
             currentSelectedSection = sectionId;
             
-            // Load students for selected course
-            loadStudents(sectionId, courseCode);
+            // Load students for selected subject
+            loadStudents(sectionId, subjectCode);
         }
 
-        function loadStudents(sectionId, courseCode) {
+        function loadStudents(sectionId, subjectCode) {
             const container = document.getElementById('studentsContent');
             
             // Show loading state
@@ -571,7 +571,7 @@ try {
 
         function displayEnrolledStudents(container, students, sectionId) {
             if (students.length === 0) {
-                container.innerHTML = '<div class="no-students">No students enrolled in this course yet</div>';
+                container.innerHTML = '<div class="no-students">No students enrolled in this subject yet</div>';
                 return;
             }
             
@@ -610,7 +610,7 @@ try {
         }
 
         function deleteStudent(studentId, sectionId, studentName) {
-            if (confirm(`⚠️ WARNING: This will permanently delete ${studentName} from the system.\n\nThis action will:\n• Remove the student from this course\n• Remove all associated data\n\nThis action CANNOT be undone. Are you sure you want to proceed?`)) {
+            if (confirm(`⚠️ WARNING: This will permanently delete ${studentName} from the system.\n\nThis action will:\n• Remove the student from this subject\n• Remove all associated data\n\nThis action CANNOT be undone. Are you sure you want to proceed?`)) {
                 // Create and submit a form for deletion
                 const form = document.createElement('form');
                 form.method = 'POST';

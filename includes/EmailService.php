@@ -85,6 +85,55 @@ class EmailService {
     }
     
     /**
+     * Send Student Registration Welcome Email
+     */
+    public function sendStudentWelcomeEmail($studentData, $password) {
+        try {
+            // Clear any previous recipients and reset sender
+            $this->mail->clearAddresses();
+            $this->mail->clearReplyTos();
+            
+            // Set sender for welcome emails
+            $this->mail->setFrom('registration@isatu.edu.ph', 'ISAT University Registration');
+            
+            // Recipient
+            $this->mail->addAddress($studentData['email'], $studentData['first_name'] . ' ' . $studentData['last_name']);
+            
+            // Subject
+            $this->mail->Subject = 'Welcome to ISATU Student Kiosk - Account Created';
+            
+            // Email content
+            $content = "
+                <h2>Welcome to ISATU Student Kiosk</h2>
+                <p>Dear {$studentData['first_name']} {$studentData['last_name']},</p>
+                <p>Your student account has been created successfully. Below are your login credentials:</p>
+                <p><strong>Student ID:</strong> {$studentData['student_id']}<br>
+                <strong>Password:</strong> {$password}</p>
+                <p>Please change your password upon first login for security purposes.</p>
+                <p>If you have any questions, please contact the registrar's office.</p>
+                <p>Best regards,<br>ISATU Registration Team</p>
+            ";
+            
+            $this->mail->Body = $content;
+            $this->mail->AltBody = strip_tags($content);
+            
+            // Send email
+            $result = $this->mail->send();
+            
+            return [
+                'success' => true,
+                'message' => 'Welcome email sent successfully to ' . $studentData['email']
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Email sending failed: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Send Student Enrollment Confirmation Email
      */
     public function sendStudentEnrollmentConfirmationEmail($student, $subjects, $academicYear, $semester) {
