@@ -264,7 +264,7 @@ body {
 
 .apply-btn {
     padding: 0.75rem 1.5rem;
-    background: #3498db;
+    background: #1e3a8a;
     color: white;
     border: none;
     border-radius: 8px;
@@ -500,7 +500,7 @@ body {
 }
 
 .grade-good {
-    background: #3498db;
+    background: #1e3a8a;
     color: white;
 }
 
@@ -866,7 +866,7 @@ body {
 .filter-select:focus,
 .search-box input:focus,
 .apply-btn:focus {
-    outline: 2px solid #3498db;
+    outline: 2px solid #1e3a8a;
     outline-offset: 2px;
 }
 
