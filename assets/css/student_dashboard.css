@@ -382,7 +382,7 @@ body {
 }
 
 .semester-header {
-    background: linear-gradient(135deg, #f39c12 0%, #f1c40f 100%);
+    background: #fbbf24;
     color: white;
     padding: 1rem 2rem;
     border-radius: 12px 12px 0 0;
