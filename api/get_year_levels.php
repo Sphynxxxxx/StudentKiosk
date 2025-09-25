@@ -1,6 +1,5 @@
 <?php
 require_once '../config/database.php';
-require_once '../includes/YearLevelHelper.php';
 
 header('Content-Type: application/json');
 
@@ -12,11 +11,38 @@ if (!isset($_GET['program_id'])) {
 
 try {
     $programId = $_GET['program_id'];
-    $yearLevels = YearLevelHelper::getYearLevelOptions($programId);
+    
+    // Get distinct year levels for the program from sections table
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT year_level 
+        FROM sections 
+        WHERE program_id = ? AND status = 'active'
+        ORDER BY 
+            CASE year_level
+                WHEN '1st' THEN 1
+                WHEN '2nd' THEN 2
+                WHEN '3rd' THEN 3
+                WHEN '4th' THEN 4
+                WHEN '5th' THEN 5
+                ELSE 6
+            END
+    ");
+    $stmt->execute([$programId]);
+    $yearLevels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $options = [];
+    foreach ($yearLevels as $level) {
+        $options[] = [
+            'value' => $level['year_level'],
+            'label' => $level['year_level'] . ' Year'
+        ];
+    }
+    
     echo json_encode([
         'success' => true,
-        'yearLevels' => $yearLevels
+        'yearLevels' => $options
     ]);
+    
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([

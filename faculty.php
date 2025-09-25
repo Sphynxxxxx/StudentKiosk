@@ -14,28 +14,29 @@ if (isset($_SESSION['faculty_id'])) {
 
 // Handle login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username']);
+    $employee_id = trim($_POST['employee_id']);
     $password = $_POST['password'];
     
-    if (empty($username) || empty($password)) {
-        $error_message = 'Please enter both username and password.';
+    if (empty($employee_id) || empty($password)) {
+        $error_message = 'Please enter both employee ID and password.';
     } else {
         try {
-            // Check if user exists and is faculty
+            // Check if user exists and is faculty using employee_id
             $stmt = $pdo->prepare("
                 SELECT u.*, fp.position, fp.department_id, d.name as department_name 
                 FROM users u 
                 LEFT JOIN faculty_profiles fp ON u.id = fp.user_id
                 LEFT JOIN departments d ON fp.department_id = d.id
-                WHERE u.username = ? AND u.role = 'faculty' AND u.status = 'active'
+                WHERE u.employee_id = ? AND u.role = 'faculty' AND u.status = 'active'
             ");
-            $stmt->execute([$username]);
+            $stmt->execute([$employee_id]);
             $faculty = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($faculty && password_verify($password, $faculty['password'])) {
                 // Set session variables
                 $_SESSION['faculty_id'] = $faculty['id'];
                 $_SESSION['faculty_name'] = $faculty['first_name'] . ' ' . $faculty['last_name'];
+                $_SESSION['faculty_employee_id'] = $faculty['employee_id'];
                 $_SESSION['faculty_username'] = $faculty['username'];
                 $_SESSION['faculty_email'] = $faculty['email'];
                 $_SESSION['faculty_position'] = $faculty['position'];
@@ -45,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: view/faculty_dashboard.php');
                 exit();
             } else {
-                $error_message = 'Invalid username or password.';
+                $error_message = 'Invalid employee ID or password.';
             }
         } catch (PDOException $e) {
             $error_message = 'Database error. Please try again later.';
@@ -244,19 +245,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" action="">
             <div class="form-group">
-                <label for="username">Username</label>
+                <label for="employee_id">Employee ID</label>
                 <div class="input-wrapper">
-                    <input type="text" id="username" name="username" required 
-                           value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>"
-                           autocomplete="username">
-                    <i class="fas fa-user input-icon"></i>
+                    <input type="text" id="employee_id" name="employee_id" required 
+                           value="<?php echo isset($_POST['employee_id']) ? htmlspecialchars($_POST['employee_id']) : ''; ?>"
+                           placeholder="Enter your employee ID"
+                           autocomplete="off">
+                    <i class="fas fa-id-badge input-icon"></i>
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="password">Password</label>
                 <div class="input-wrapper">
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Enter your password"
+                           autocomplete="current-password">
                     <i class="fas fa-lock input-icon"></i>
                 </div>
             </div>

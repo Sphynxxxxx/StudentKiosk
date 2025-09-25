@@ -23,3 +23,4 @@ if (isset($_GET['program_id']) && isset($_GET['year_level'])) {
     echo json_encode([]);
 }
 ?>
+

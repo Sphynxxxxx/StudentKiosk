@@ -13,9 +13,9 @@ $stats['total_students'] = $user_stats['student'] ?? 0;
 $stats['total_faculty'] = $user_stats['faculty'] ?? 0;
 $stats['total_admins'] = $user_stats['administrator'] ?? 0;
 
-// Total courses
-$stmt = $pdo->query("SELECT COUNT(*) FROM courses");
-$stats['total_courses'] = $stmt->fetchColumn();
+// Total subjects (instead of courses)
+$stmt = $pdo->query("SELECT COUNT(*) FROM subjects");
+$stats['total_subjects'] = $stmt->fetchColumn();
 
 // Total departments
 $stmt = $pdo->query("SELECT COUNT(*) FROM departments");
@@ -74,21 +74,35 @@ usort($recent_activities, function($a, $b) {
 });
 $recent_activities = array_slice($recent_activities, 0, 10);
 
-// Get department statistics
+// Get department statistics - Fixed query
 $stmt = $pdo->prepare("
     SELECT 
         d.name,
         d.code,
-        COUNT(c.id) as course_count,
-        COUNT(DISTINCT cs.faculty_id) as faculty_count
+        COUNT(DISTINCT s.id) as subject_count,
+        COUNT(DISTINCT fp.user_id) as faculty_count
     FROM departments d
-    LEFT JOIN courses c ON d.id = c.department_id
-    LEFT JOIN class_sections cs ON c.id = cs.course_id
+    LEFT JOIN subjects s ON d.id = s.department_id
+    LEFT JOIN faculty_profiles fp ON d.id = fp.department_id
     GROUP BY d.id, d.name, d.code
     ORDER BY d.name
 ");
 $stmt->execute();
 $department_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get program statistics
+$stmt = $pdo->prepare("
+    SELECT 
+        COUNT(DISTINCT p.id) as total_programs,
+        COUNT(DISTINCT sec.id) as total_sections,
+        COUNT(DISTINCT sp.id) as enrolled_students
+    FROM programs p
+    LEFT JOIN sections sec ON p.id = sec.program_id
+    LEFT JOIN student_profiles sp ON p.id = sp.program_id
+    WHERE p.status = 'active'
+");
+$stmt->execute();
+$program_stats = $stmt->fetch(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -142,8 +156,8 @@ $department_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <i class="fas fa-book"></i>
                             </div>
                         </div>
-                        <div class="stat-value"><?php echo number_format($stats['total_courses']); ?></div>
-                        <div class="stat-label">Available Courses</div>
+                        <div class="stat-value"><?php echo number_format($stats['total_subjects']); ?></div>
+                        <div class="stat-label">Available Subjects</div>
                     </div>
 
                     <div class="stat-card danger">
@@ -203,46 +217,53 @@ $department_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </h3>
                         </div>
                         
-                        <?php foreach ($department_stats as $dept): ?>
-                            <div class="department-item">
-                                <div class="department-info">
-                                    <h4><?php echo htmlspecialchars($dept['name']); ?></h4>
-                                    <small style="color: var(--gray-600);">
-                                        <?php echo htmlspecialchars($dept['code']); ?>
-                                    </small>
-                                </div>
-                                <div class="department-stats">
-                                    <div class="department-stat">
-                                        <strong><?php echo $dept['course_count']; ?></strong>
-                                        <small>Courses</small>
-                                    </div>
-                                    <div class="department-stat">
-                                        <strong><?php echo $dept['faculty_count']; ?></strong>
-                                        <small>Faculty</small>
-                                    </div>
-                                </div>
+                        <?php if (empty($department_stats)): ?>
+                            <div style="text-align: center; padding: 2rem; color: var(--gray-600);">
+                                <i class="fas fa-building" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <p>No departments found</p>
                             </div>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php foreach ($department_stats as $dept): ?>
+                                <div class="department-item">
+                                    <div class="department-info">
+                                        <h4><?php echo htmlspecialchars($dept['name']); ?></h4>
+                                        <small style="color: var(--gray-600);">
+                                            Code: <?php echo htmlspecialchars($dept['code']); ?>
+                                        </small>
+                                    </div>
+                                    <div class="department-stats">
+                                        <div class="department-stat">
+                                            <strong><?php echo $dept['subject_count']; ?></strong>
+                                            <small>Subjects</small>
+                                        </div>
+                                        <div class="department-stat">
+                                            <strong><?php echo $dept['faculty_count']; ?></strong>
+                                            <small>Faculty</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
 
                 <div class="dashboard-card">
                     <div class="card-header">
                         <h3 class="card-title">
-                            <i class="fas fa-chart-pie"></i> Quick Statistics
+                            <i class="fas fa-chart-pie"></i> System Overview
                         </h3>
                     </div>
                     
                     <div class="stats-grid">
-                        <!--<div class="stat-card">
+                        <div class="stat-card primary">
                             <div class="stat-card-header">
                                 <div class="stat-icon primary">
-                                    <i class="fas fa-user-shield"></i>
+                                    <i class="fas fa-graduation-cap"></i>
                                 </div>
                             </div>
-                            <div class="stat-value"><?php echo number_format($stats['total_admins']); ?></div>
-                            <div class="stat-label">Administrators</div>
-                        </div>-->
+                            <div class="stat-value"><?php echo number_format($program_stats['total_programs'] ?? 0); ?></div>
+                            <div class="stat-label">Programs</div>
+                        </div>
 
                         <div class="stat-card success">
                             <div class="stat-card-header">
@@ -252,6 +273,16 @@ $department_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="stat-value"><?php echo number_format($stats['total_departments']); ?></div>
                             <div class="stat-label">Departments</div>
+                        </div>
+
+                        <div class="stat-card info">
+                            <div class="stat-card-header">
+                                <div class="stat-icon info">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value"><?php echo number_format($program_stats['total_sections'] ?? 0); ?></div>
+                            <div class="stat-label">Sections</div>
                         </div>
 
                         <div class="stat-card warning">

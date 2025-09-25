@@ -74,21 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $message = 'Cannot delete subject: It is assigned to ' . $section_count . ' class section(s). Please remove all assignments first.';
                         $message_type = 'error';
                     } else {
-                        // Check if subject has any enrolled students (if you have an enrollments table)
-                        // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE subject_id = ?");
-                        // $stmt->execute([$_POST['subject_id']]);
-                        // $enrollment_count = $stmt->fetchColumn();
-                        
-                        // if ($enrollment_count > 0) {
-                        //     $message = 'Cannot delete subject: It has enrolled students. Please unenroll all students first.';
-                        //     $message_type = 'error';
-                        // } else {
-                            // Safe to delete
-                            $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ?");
-                            $stmt->execute([$_POST['subject_id']]);
-                            $message = 'Subject deleted successfully!';
-                            $message_type = 'success';
-                        // }
+                        // Safe to delete
+                        $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ?");
+                        $stmt->execute([$_POST['subject_id']]);
+                        $message = 'Subject deleted successfully!';
+                        $message_type = 'success';
                     }
                 } catch (PDOException $e) {
                     $message = 'Error deleting subject: ' . $e->getMessage();
@@ -101,24 +91,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Check if class section already exists for this subject and academic year
                     $stmt = $pdo->prepare("
                         SELECT id FROM class_sections 
-                        WHERE subject_id = ? AND academic_year_id = ? AND section_name = ?
+                        WHERE subject_id = ? AND academic_year_id = ? AND section_id = ?
                     ");
-                    $stmt->execute([$_POST['subject_id'], $_POST['academic_year_id'], $_POST['section_name']]);
+                    $stmt->execute([$_POST['subject_id'], $_POST['academic_year_id'], $_POST['section_id']]);
                     
                     if ($stmt->rowCount() > 0) {
                         $message = 'Section already exists for this subject and academic year!';
                         $message_type = 'error';
                     } else {
+                        // Get section name for display
+                        $sectionStmt = $pdo->prepare("SELECT section_name FROM sections WHERE id = ?");
+                        $sectionStmt->execute([$_POST['section_id']]);
+                        $sectionName = $sectionStmt->fetchColumn();
+                        
                         // Create new class section
                         $stmt = $pdo->prepare("
-                            INSERT INTO class_sections (subject_id, faculty_id, academic_year_id, section_name, schedule, room, max_students, status) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+                            INSERT INTO class_sections (subject_id, faculty_id, academic_year_id, section_id, section_name, schedule, room, max_students, status) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
                         ");
                         $stmt->execute([
                             $_POST['subject_id'],
                             $_POST['faculty_id'],
                             $_POST['academic_year_id'],
-                            $_POST['section_name'],
+                            $_POST['section_id'],
+                            $sectionName,
                             $_POST['schedule'],
                             $_POST['room'],
                             $_POST['max_students']
@@ -134,21 +130,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete_section':
                 try {
-                    // Check if section has any enrolled students (if you have an enrollments table)
-                    // $stmt = $pdo->prepare("SELECT COUNT(*) FROM enrollments WHERE class_section_id = ?");
-                    // $stmt->execute([$_POST['section_id']]);
-                    // $enrollment_count = $stmt->fetchColumn();
-                    
-                    // if ($enrollment_count > 0) {
-                    //     $message = 'Cannot delete class section: It has ' . $enrollment_count . ' enrolled student(s). Please unenroll all students first.';
-                    //     $message_type = 'error';
-                    // } else {
-                        // Safe to delete
-                        $stmt = $pdo->prepare("DELETE FROM class_sections WHERE id = ?");
-                        $stmt->execute([$_POST['section_id']]);
-                        $message = 'Class section deleted successfully!';
-                        $message_type = 'success';
-                    // }
+                    // Safe to delete
+                    $stmt = $pdo->prepare("DELETE FROM class_sections WHERE id = ?");
+                    $stmt->execute([$_POST['section_id']]);
+                    $message = 'Class section deleted successfully!';
+                    $message_type = 'success';
                 } catch (PDOException $e) {
                     $message = 'Error deleting class section: ' . $e->getMessage();
                     $message_type = 'error';
@@ -172,6 +158,17 @@ $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stmt = $pdo->prepare("SELECT id, name, code FROM departments WHERE status = 'active' ORDER BY name");
 $stmt->execute();
 $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get all programs for dropdown
+$stmt = $pdo->prepare("
+    SELECT p.id, p.program_code, p.program_name, d.name as department_name
+    FROM programs p
+    JOIN departments d ON p.department_id = d.id
+    WHERE p.status = 'active'
+    ORDER BY p.program_name
+");
+$stmt->execute();
+$programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all faculty members for dropdown
 $stmt = $pdo->prepare("
@@ -199,11 +196,14 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stmt = $pdo->prepare("
     SELECT cs.*, s.course_code, s.subject_name,
            CONCAT(u.first_name, ' ', u.last_name) as faculty_name,
-           CONCAT(ay.year_start, '-', ay.year_end, ' (', ay.semester, ' Semester)') as academic_year
+           CONCAT(ay.year_start, '-', ay.year_end, ' (', ay.semester, ' Semester)') as academic_year,
+           p.program_name, sec.year_level
     FROM class_sections cs
     JOIN subjects s ON cs.subject_id = s.id
     JOIN users u ON cs.faculty_id = u.id
     JOIN academic_years ay ON cs.academic_year_id = ay.id
+    LEFT JOIN sections sec ON cs.section_id = sec.id
+    LEFT JOIN programs p ON sec.program_id = p.id
     ORDER BY s.course_code, cs.section_name
 ");
 $stmt->execute();
@@ -424,8 +424,31 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="section_name">Section Name *</label>
-                                    <input type="text" id="section_name" name="section_name" placeholder="e.g., A, B, 1A, 2B" required>
+                                    <label for="program_id">Program *</label>
+                                    <select id="program_id" name="program_id" required onchange="loadYearLevels()">
+                                        <option value="">Select Program</option>
+                                        <?php foreach ($programs as $program): ?>
+                                        <option value="<?php echo $program['id']; ?>">
+                                            <?php echo htmlspecialchars($program['program_name'] . ' (' . $program['program_code'] . ')'); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="year_level">Year Level *</label>
+                                    <select id="year_level" name="year_level" required onchange="loadSections()" disabled>
+                                        <option value="">Select Year Level</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="section_id">Section *</label>
+                                    <select id="section_id" name="section_id" required disabled>
+                                        <option value="">Select Section</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -473,6 +496,8 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <thead>
                                     <tr>
                                         <th>Subject</th>
+                                        <th>Program</th>
+                                        <th>Year Level</th>
                                         <th>Section</th>
                                         <th>Faculty</th>
                                         <th>Academic Year</th>
@@ -490,6 +515,8 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             <strong><?php echo htmlspecialchars($section['course_code']); ?></strong><br>
                                             <small><?php echo htmlspecialchars($section['subject_name']); ?></small>
                                         </td>
+                                        <td><?php echo htmlspecialchars($section['program_name'] ?: 'N/A'); ?></td>
+                                        <td><?php echo htmlspecialchars($section['year_level'] ?: 'N/A'); ?></td>
                                         <td><?php echo htmlspecialchars($section['section_name']); ?></td>
                                         <td><?php echo htmlspecialchars($section['faculty_name']); ?></td>
                                         <td><?php echo htmlspecialchars($section['academic_year']); ?></td>
@@ -652,6 +679,95 @@ $class_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     }
                 }
             }
+        }
+
+        // Dynamic loading functions for assign faculty
+        function loadYearLevels() {
+            const programId = document.getElementById('program_id').value;
+            const yearLevelSelect = document.getElementById('year_level');
+            const sectionSelect = document.getElementById('section_id');
+            
+            // Reset dependent dropdowns
+            yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+            sectionSelect.innerHTML = '<option value="">Select Section</option>';
+            sectionSelect.disabled = true;
+            
+            if (!programId) {
+                yearLevelSelect.disabled = true;
+                return;
+            }
+            
+            // Show loading
+            yearLevelSelect.innerHTML = '<option value="">Loading...</option>';
+            yearLevelSelect.disabled = false;
+            
+            fetch(`../api/get_year_levels.php?program_id=${programId}`)
+                .then(response => response.json())
+                .then(data => {
+                    yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+                    
+                    if (data.success && data.yearLevels) {
+                        data.yearLevels.forEach(yearLevel => {
+                            const option = document.createElement('option');
+                            option.value = yearLevel.value;
+                            option.textContent = yearLevel.label;
+                            yearLevelSelect.appendChild(option);
+                        });
+                    } else if (data.error) {
+                        console.error('Error loading year levels:', data.error);
+                        yearLevelSelect.innerHTML = '<option value="">Error loading year levels</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    yearLevelSelect.innerHTML = '<option value="">Error loading year levels</option>';
+                });
+        }
+        
+        function loadSections() {
+            const programId = document.getElementById('program_id').value;
+            const yearLevel = document.getElementById('year_level').value;
+            const sectionSelect = document.getElementById('section_id');
+            
+            // Reset section dropdown
+            sectionSelect.innerHTML = '<option value="">Select Section</option>';
+            
+            if (!programId || !yearLevel) {
+                sectionSelect.disabled = true;
+                return;
+            }
+            
+            // Show loading
+            sectionSelect.innerHTML = '<option value="">Loading...</option>';
+            sectionSelect.disabled = false;
+            
+            fetch(`../api/get_sections.php?program_id=${programId}&year_level=${yearLevel}`)
+                .then(response => response.json())
+                .then(data => {
+                    sectionSelect.innerHTML = '<option value="">Select Section</option>';
+                    
+                    if (Array.isArray(data) && data.length > 0) {
+                        data.forEach(section => {
+                            const option = document.createElement('option');
+                            option.value = section.id;
+                            option.textContent = section.section_name;
+                            sectionSelect.appendChild(option);
+                        });
+                        sectionSelect.disabled = false;
+                    } else if (data.error) {
+                        console.error('Error loading sections:', data.error);
+                        sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
+                        sectionSelect.disabled = true;
+                    } else {
+                        sectionSelect.innerHTML = '<option value="">No sections available</option>';
+                        sectionSelect.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
+                    sectionSelect.disabled = true;
+                });
         }
 
         // Form validation
