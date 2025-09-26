@@ -56,7 +56,7 @@ require_once '../config/database.php';
 try {
     // Get student information with status
     $stmt = $pdo->prepare("
-        SELECT u.*, sp.year_level, sp.program_id, sp.student_status, sp.section_id,
+        SELECT u.*, sp.year_level, sp.program_id, sp.student_status, sp.section_id, sp.academic_year_id,
                p.program_name, p.program_code, s.section_name
         FROM users u 
         LEFT JOIN student_profiles sp ON u.id = sp.user_id
@@ -103,18 +103,27 @@ try {
     $stmt->execute();
     $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get active academic year if none selected
+    // Get active academic year if none selected - prioritize student's academic year
     $selected_ay = isset($_GET['academic_year_id']) ? $_GET['academic_year_id'] : null;
     if (!$selected_ay) {
-        $stmt = $pdo->prepare("SELECT id FROM academic_years WHERE is_active = 1 LIMIT 1");
-        $stmt->execute();
-        $active_ay = $stmt->fetch(PDO::FETCH_ASSOC);
-        $selected_ay = $active_ay ? $active_ay['id'] : null;
+        // First try to use student's academic year from their profile
+        if ($student['academic_year_id']) {
+            $selected_ay = $student['academic_year_id'];
+        } else {
+            // Fallback to active academic year
+            $stmt = $pdo->prepare("SELECT id FROM academic_years WHERE is_active = 1 LIMIT 1");
+            $stmt->execute();
+            $active_ay = $stmt->fetch(PDO::FETCH_ASSOC);
+            $selected_ay = $active_ay ? $active_ay['id'] : null;
+        }
     }
 
-    // Get available class sections for enrollment
+    // Get available class sections for enrollment - FILTERED by student's year, section, and program
     $available_sections = [];
-    if ($selected_ay && isset($student['program_id']) && $student['program_id']) {
+    if ($selected_ay && isset($student['program_id']) && $student['program_id'] && 
+        isset($student['year_level']) && $student['year_level']) {
+        
+        // Updated query to filter by student's specific year, section, and program
         $stmt = $pdo->prepare("
             SELECT 
                 cs.id as class_section_id,
@@ -132,21 +141,49 @@ try {
                 u.first_name as faculty_first_name,
                 u.last_name as faculty_last_name,
                 COUNT(e.id) as enrolled_count,
-                CASE WHEN e_student.id IS NOT NULL THEN 1 ELSE 0 END as is_enrolled
+                CASE WHEN e_student.id IS NOT NULL THEN 1 ELSE 0 END as is_enrolled,
+                sec.year_level as section_year_level,
+                sec.program_id as section_program_id
             FROM class_sections cs
             INNER JOIN subjects s ON cs.subject_id = s.id
             INNER JOIN academic_years ay ON cs.academic_year_id = ay.id
             INNER JOIN users u ON cs.faculty_id = u.id
+            LEFT JOIN sections sec ON cs.section_id = sec.id
             LEFT JOIN enrollments e ON cs.id = e.class_section_id AND e.status = 'enrolled'
             LEFT JOIN enrollments e_student ON cs.id = e_student.class_section_id 
                 AND e_student.student_id = ? AND e_student.status = 'enrolled'
             WHERE ay.id = ? 
                 AND cs.status = 'active'
                 AND s.status = 'active'
-            GROUP BY cs.id, s.id, ay.id, u.id
+                AND (
+                    -- Match student's specific section if they have one
+                    (? IS NOT NULL AND cs.section_id = ?) OR
+                    -- If no specific section, match by year level and program
+                    (? IS NULL AND sec.year_level = ? AND sec.program_id = ?) OR
+                    -- Also include sections that don't have a specific section assigned but match criteria
+                    (cs.section_id IS NULL AND EXISTS (
+                        SELECT 1 FROM sections temp_sec 
+                        WHERE temp_sec.year_level = ? 
+                        AND temp_sec.program_id = ?
+                        AND temp_sec.academic_year_id = ?
+                    ))
+                )
+            GROUP BY cs.id, s.id, ay.id, u.id, sec.id
             ORDER BY s.course_code, cs.section_name
         ");
-        $stmt->execute([$_SESSION['student_id'], $selected_ay]);
+        
+        $stmt->execute([
+            $_SESSION['student_id'], 
+            $selected_ay,
+            $student['section_id'],  // param 3
+            $student['section_id'],  // param 4  
+            $student['section_id'],  // param 5
+            $student['year_level'],  // param 6
+            $student['program_id'],  // param 7
+            $student['year_level'],  // param 8
+            $student['program_id'],  // param 9
+            $selected_ay             // param 10
+        ]);
         $available_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -219,300 +256,7 @@ try {
     <title>Pre-enrollment - ISATU Kiosk System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/student_dashboard.css" rel="stylesheet">
-    <style>
-        .enrollment-form {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-            margin-bottom: 2rem;
-        }
 
-        .form-header {
-            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-            color: white;
-            padding: 1.5rem;
-            text-align: center;
-        }
-
-        .form-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .student-details {
-            background: #f8fafc;
-            padding: 1.5rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .details-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-
-        .detail-item {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .detail-label {
-            font-weight: 600;
-            color: #374151;
-            min-width: 80px;
-        }
-
-        .detail-value {
-            color: #6b7280;
-        }
-
-        .subjects-section {
-            padding: 1.5rem;
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .section-header h3 {
-            margin: 0;
-            color: #1f2937;
-            font-size: 1.1rem;
-        }
-
-        .subjects-table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .subjects-table th {
-            background: #f1f5f9;
-            color: #374151;
-            font-weight: 600;
-            padding: 0.875rem 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.875rem;
-        }
-
-        .subjects-table td {
-            padding: 0.875rem 0.75rem;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: middle;
-            font-size: 0.875rem;
-        }
-
-        .subjects-table tr:hover {
-            background: #f8fafc;
-        }
-
-        .subjects-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .checkbox-cell {
-            width: 40px;
-            text-align: center;
-        }
-
-        .checkbox-cell input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: #3b82f6;
-        }
-
-        .course-code {
-            font-weight: 600;
-            color: #1f2937;
-            width: 80px;
-        }
-
-        .section-cell {
-            text-align: center;
-            width: 80px;
-        }
-
-        .credits-cell {
-            text-align: center;
-            width: 60px;
-            font-weight: 500;
-        }
-
-        .schedule-cell {
-            width: 120px;
-            color: #6b7280;
-        }
-
-        .slots-cell {
-            text-align: center;
-            width: 80px;
-            font-size: 0.8rem;
-        }
-
-        .status-cell {
-            text-align: center;
-            width: 80px;
-        }
-
-        .status-badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-
-        .status-available {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .status-full {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status-enrolled {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .enroll-button-container {
-            text-align: center;
-            padding: 2rem;
-            background: #f8fafc;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .enroll-button {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-            color: white;
-            padding: 0.875rem 2rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .enroll-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        .enroll-button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .alert-success {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #166534;
-        }
-
-        .alert-error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
-        }
-
-        .legend {
-            background: #fffbeb;
-            border: 1px solid #fed7aa;
-            color: #92400e;
-            padding: 1rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-        }
-
-        .legend strong {
-            color: #7c2d12;
-        }
-
-        .red-text {
-            color: #dc2626;
-            font-weight: 600;
-        }
-
-        .student-info-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .info-item {
-            display: flex;
-            padding: 0.75rem 1rem;
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .info-item:last-child {
-            border-right: none;
-        }
-
-        .info-item:nth-child(n+4) {
-            border-bottom: none;
-        }
-
-        .info-label {
-            font-weight: 600;
-            color: #374151;
-            min-width: 100px;
-            font-size: 0.875rem;
-        }
-
-        .info-value {
-            color: #1f2937;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .status-regular { color: #059669; font-weight: 600; }
-        .status-irregular { color: #d97706; font-weight: 600; }
-        .status-probation { color: #dc2626; font-weight: 600; }
-        .status-suspended { color: #991b1b; font-weight: 600; }
-        .status-graduated { color: #7c3aed; font-weight: 600; }
-        .status-inactive { color: #6b7280; font-weight: 600; }
-        .status-leave { color: #0891b2; font-weight: 600; }
-        .status-returning { color: #059669; font-weight: 600; }
-        .status-default { color: #374151; font-weight: 600; }
-    </style>
 </head>
 <body>
     <!-- Header -->
@@ -684,13 +428,41 @@ try {
         </div>
         <?php endif; ?>
 
+        <!-- Show helpful message if student profile is incomplete -->
+        <?php if (empty($student['program_id']) || empty($student['year_level'])): ?>
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Incomplete Profile:</strong> Your student profile is missing required information (program or year level). 
+            Please contact the registrar to complete your profile before enrolling in subjects.
+        </div>
+        <?php endif; ?>
+
         <?php if (empty($available_sections)): ?>
         <div class="empty-grades">
             <i class="fas fa-calendar-plus"></i>
             <h3>No Subjects Available</h3>
-            <p>No subjects found for the selected academic year. Please select an academic year or contact the registrar.</p>
+            <p>
+                <?php if (empty($student['program_id']) || empty($student['year_level'])): ?>
+                    Please ensure your profile is complete (program and year level) before viewing available subjects.
+                <?php else: ?>
+                    No subjects found for your program (<?php echo htmlspecialchars($student['program_name'] ?? 'N/A'); ?>), 
+                    year level (<?php echo htmlspecialchars($student['year_level'] ?? 'N/A'); ?>), 
+                    and the selected academic year. Please contact the registrar if you believe this is an error.
+                <?php endif; ?>
+            </p>
         </div>
         <?php else: ?>
+
+        <!-- Show filtering info -->
+        <!--<div class="filter-info">
+            <i class="fas fa-info-circle"></i>
+            <strong>Showing subjects for:</strong> 
+            <?php echo htmlspecialchars($student['program_name'] ?? 'Unknown Program'); ?> - 
+            <?php echo htmlspecialchars($student['year_level'] ?? 'Unknown Year'); ?> Year
+            <?php if (!empty($student['section_name'])): ?>
+                - Section <?php echo htmlspecialchars($student['section_name']); ?>
+            <?php endif; ?>
+        </div>-->
 
         <!-- Enrollment Form -->
         <div class="enrollment-form">
@@ -734,7 +506,8 @@ try {
                         <strong>Instructions:</strong><br>
                         * Click checkbox to select subject - <span class="red-text">STRICTLY NO CHANGES</span><br>
                         * Please check that you read the special instruction<br>
-                        * Indicates your payment status in this semester data.
+                        * Indicates your payment status in this semester data.<br>
+                        * Only subjects matching your program, year level, and section are shown.
                     </div>
 
                     <div class="section-header">
@@ -833,5 +606,39 @@ try {
             window.location.reload();
         }, 600000);
     </script>
+
+    <style>
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .filter-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b6d7ff;
+            color: #0056b3;
+            padding: 12px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .red-text {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
 </body>
 </html>

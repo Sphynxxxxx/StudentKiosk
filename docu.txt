@@ -3,5 +3,4 @@ composer require phpmailer/phpmailer
 # Visit: https://getcomposer.org/download/
 
 NEED TO DO
-manage_departments.php TO BECOME DYNAMIC
 

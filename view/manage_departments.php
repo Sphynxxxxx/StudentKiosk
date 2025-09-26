@@ -258,7 +258,7 @@ $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all sections with program and adviser information
 $stmt = $pdo->prepare("
-    SELECT s.*, p.program_code, p.program_name, d.name as department_name,
+    SELECT s.*, p.program_code, p.program_name, p.duration_years, d.name as department_name,
            CONCAT(u.first_name, ' ', u.last_name) as adviser_name,
            CONCAT(ay.year_start, '-', ay.year_end, ' (', ay.semester, ' Semester)') as academic_year,
            COUNT(sp.id) as student_count
@@ -599,11 +599,11 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="section_program_id">Program *</label>
-                                    <select id="section_program_id" name="program_id" required>
+                                    <select id="section_program_id" name="program_id" required onchange="loadYearLevels()">
                                         <option value="">Select Program</option>
                                         <?php foreach ($programs as $program): ?>
                                             <?php if ($program['status'] === 'active'): ?>
-                                            <option value="<?php echo $program['id']; ?>">
+                                            <option value="<?php echo $program['id']; ?>" data-duration="<?php echo $program['duration_years']; ?>">
                                                 <?php echo htmlspecialchars($program['program_code'] . ' - ' . $program['program_name']); ?>
                                             </option>
                                             <?php endif; ?>
@@ -614,12 +614,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="form-group">
                                     <label for="year_level">Year Level *</label>
                                     <select id="year_level" name="year_level" required>
-                                        <option value="">Select Year Level</option>
-                                        <option value="1st">1st Year</option>
-                                        <option value="2nd">2nd Year</option>
-                                        <option value="3rd">3rd Year</option>
-                                        <option value="4th">4th Year</option>
-                                        <option value="5th">5th Year</option>
+                                        <option value="">Select Program First</option>
                                     </select>
                                 </div>
                             </div>
@@ -881,11 +876,11 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit_section_program_id">Program *</label>
-                        <select id="edit_section_program_id" name="program_id" required>
+                        <select id="edit_section_program_id" name="program_id" required onchange="loadEditYearLevels()">
                             <option value="">Select Program</option>
                             <?php foreach ($programs as $program): ?>
                                 <?php if ($program['status'] === 'active'): ?>
-                                <option value="<?php echo $program['id']; ?>">
+                                <option value="<?php echo $program['id']; ?>" data-duration="<?php echo $program['duration_years']; ?>">
                                     <?php echo htmlspecialchars($program['program_code'] . ' - ' . $program['program_name']); ?>
                                 </option>
                                 <?php endif; ?>
@@ -896,12 +891,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="form-group">
                         <label for="edit_year_level">Year Level *</label>
                         <select id="edit_year_level" name="year_level" required>
-                            <option value="">Select Year Level</option>
-                            <option value="1st">1st Year</option>
-                            <option value="2nd">2nd Year</option>
-                            <option value="3rd">3rd Year</option>
-                            <option value="4th">4th Year</option>
-                            <option value="5th">5th Year</option>
+                            <option value="">Select Program First</option>
                         </select>
                     </div>
                 </div>
@@ -909,7 +899,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit_section_name">Section Name *</label>
-                        <input type="text" id="edit_section_name" name="section_name" required>
+                        <input type="text" id="edit_section_name" name="section_name" placeholder="e.g., A, B, 1A, 2B" required>
                     </div>
                     
                     <div class="form-group">
@@ -976,6 +966,52 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
             evt.currentTarget.classList.add("active");
         }
 
+        // Dynamic Year Level Loading based on Program Duration
+        function loadYearLevels() {
+            const programSelect = document.getElementById('section_program_id');
+            const yearSelect = document.getElementById('year_level');
+            
+            // Clear existing options
+            yearSelect.innerHTML = '<option value="">Select Year Level</option>';
+            
+            if (programSelect.value) {
+                const selectedOption = programSelect.options[programSelect.selectedIndex];
+                const duration = parseInt(selectedOption.dataset.duration) || 4;
+                
+                const yearLevels = ['1st', '2nd', '3rd', '4th', '5th'];
+                
+                for (let i = 0; i < duration && i < yearLevels.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = yearLevels[i];
+                    option.textContent = yearLevels[i] + ' Year';
+                    yearSelect.appendChild(option);
+                }
+            }
+        }
+
+        // Edit modal functions
+        function loadEditYearLevels() {
+            const programSelect = document.getElementById('edit_section_program_id');
+            const yearSelect = document.getElementById('edit_year_level');
+            
+            // Clear existing options
+            yearSelect.innerHTML = '<option value="">Select Year Level</option>';
+            
+            if (programSelect.value) {
+                const selectedOption = programSelect.options[programSelect.selectedIndex];
+                const duration = parseInt(selectedOption.dataset.duration) || 4;
+                
+                const yearLevels = ['1st', '2nd', '3rd', '4th', '5th'];
+                
+                for (let i = 0; i < duration && i < yearLevels.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = yearLevels[i];
+                    option.textContent = yearLevels[i] + ' Year';
+                    yearSelect.appendChild(option);
+                }
+            }
+        }
+
         function editDepartment(department) {
             document.getElementById('edit_department_id').value = department.id;
             document.getElementById('edit_dept_name').value = department.name;
@@ -1001,11 +1037,18 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
         function editSection(section) {
             document.getElementById('edit_section_id').value = section.id;
             document.getElementById('edit_section_program_id').value = section.program_id;
-            document.getElementById('edit_year_level').value = section.year_level;
-            document.getElementById('edit_section_name').value = section.section_name;
             document.getElementById('edit_section_academic_year_id').value = section.academic_year_id;
             document.getElementById('edit_section_adviser_id').value = section.adviser_id || '';
             document.getElementById('edit_section_max_students').value = section.max_students;
+            
+            // Load year levels first
+            loadEditYearLevels();
+            
+            // Set year level and section name after a short delay to ensure options are loaded
+            setTimeout(() => {
+                document.getElementById('edit_year_level').value = section.year_level;
+                document.getElementById('edit_section_name').value = section.section_name;
+            }, 100);
             
             document.getElementById('editSectionModal').style.display = 'block';
         }
