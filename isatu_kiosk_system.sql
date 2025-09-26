@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 18, 2025 at 08:41 PM
+-- Generation Time: Sep 26, 2025 at 10:26 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -41,7 +41,7 @@ CREATE TABLE `academic_years` (
 --
 
 INSERT INTO `academic_years` (`id`, `year_start`, `year_end`, `semester`, `is_active`, `created_at`) VALUES
-(2, '2025', '2026', '1st', 1, '2025-09-18 12:03:51');
+(3, '2025', '2026', '1st', 1, '2025-09-26 07:23:10');
 
 -- --------------------------------------------------------
 
@@ -51,7 +51,7 @@ INSERT INTO `academic_years` (`id`, `year_start`, `year_end`, `semester`, `is_ac
 
 CREATE TABLE `class_sections` (
   `id` int(11) NOT NULL,
-  `course_id` int(11) NOT NULL,
+  `subject_id` int(11) NOT NULL,
   `faculty_id` int(11) NOT NULL,
   `academic_year_id` int(11) NOT NULL,
   `section_id` int(11) DEFAULT NULL,
@@ -67,38 +67,10 @@ CREATE TABLE `class_sections` (
 -- Dumping data for table `class_sections`
 --
 
-INSERT INTO `class_sections` (`id`, `course_id`, `faculty_id`, `academic_year_id`, `section_id`, `section_name`, `schedule`, `room`, `max_students`, `status`, `created_at`) VALUES
-(12, 23, 30, 2, NULL, 'B', 'gfhdsds 9:00', 'Room 101', 40, 'active', '2025-09-18 12:04:27'),
-(13, 19, 30, 2, NULL, 'b', 'MWF 10:00 AM', 'Room 102', 40, 'active', '2025-09-18 17:56:25');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `courses`
---
-
-CREATE TABLE `courses` (
-  `id` int(11) NOT NULL,
-  `course_code` varchar(20) NOT NULL,
-  `course_name` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `credits` int(11) NOT NULL DEFAULT 3,
-  `department_id` int(11) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `status` enum('active','inactive') DEFAULT 'active'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `courses`
---
-
-INSERT INTO `courses` (`id`, `course_code`, `course_name`, `description`, `credits`, `department_id`, `created_at`, `status`) VALUES
-(18, 'EDUC 101', 'Introduction to Education', 'Foundations of Education and Teaching', 3, 8, '2025-09-18 11:11:01', 'active'),
-(19, 'EDUC 102', 'Educational Psychology', 'Understanding Student Learning and Development', 3, 8, '2025-09-18 11:11:01', 'active'),
-(20, 'EDUC 103', 'Curriculum and Instruction', 'Planning and Implementing Effective Teaching Strategies', 3, 8, '2025-09-18 11:11:01', 'active'),
-(21, 'EDUC 104', 'Classroom Management', 'Creating Positive Learning Environments', 3, 8, '2025-09-18 11:11:01', 'active'),
-(22, 'EDUC 105', 'Assessment and Evaluation', 'Student Assessment Techniques and Evaluation Methods', 3, 8, '2025-09-18 11:11:01', 'active'),
-(23, 'BIT101', 'dfsjfhdfnsd', '', 3, 6, '2025-09-18 12:02:03', 'active');
+INSERT INTO `class_sections` (`id`, `subject_id`, `faculty_id`, `academic_year_id`, `section_id`, `section_name`, `schedule`, `room`, `max_students`, `status`, `created_at`) VALUES
+(21, 32, 70, 3, 63, 'B', 'MWF 10:00 AM', '', 40, 'active', '2025-09-26 07:25:07'),
+(22, 33, 70, 3, 64, 'A', 'MWF 10:00 AM', '', 40, 'active', '2025-09-26 07:27:36'),
+(23, 32, 70, 3, 64, 'A', 'MWF 10:00 AM', '', 40, 'active', '2025-09-26 07:29:47');
 
 -- --------------------------------------------------------
 
@@ -121,11 +93,7 @@ CREATE TABLE `departments` (
 --
 
 INSERT INTO `departments` (`id`, `name`, `code`, `description`, `head_faculty_id`, `created_at`, `status`) VALUES
-(5, 'Computer Science', 'CS', 'Department of Computer Science and Information Technology', NULL, '2025-09-18 07:41:31', 'active'),
-(6, 'Engineering', 'ENG', 'Department of Engineering', NULL, '2025-09-18 07:41:31', 'active'),
-(7, 'Business Administration', 'BA', 'Department of Business and Management', NULL, '2025-09-18 07:41:31', 'active'),
-(8, 'Education', 'EDUC', 'Department of Teacher Education', NULL, '2025-09-18 07:41:31', 'active'),
-(9, 'Liberal Arts', 'LA', 'Department of Liberal Arts and Sciences', NULL, '2025-09-18 07:41:31', 'active');
+(12, 'CCI', '001', '', 70, '2025-09-26 07:23:22', 'active');
 
 -- --------------------------------------------------------
 
@@ -138,7 +106,24 @@ CREATE TABLE `enrollments` (
   `student_id` int(11) NOT NULL,
   `class_section_id` int(11) NOT NULL,
   `enrollment_date` timestamp NOT NULL DEFAULT current_timestamp(),
-  `status` enum('enrolled','dropped','completed') DEFAULT 'enrolled'
+  `status` enum('enrolled','dropped','completed') DEFAULT 'enrolled',
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `enrollment_logs`
+--
+
+CREATE TABLE `enrollment_logs` (
+  `id` int(11) NOT NULL,
+  `student_id` int(11) NOT NULL,
+  `action_type` varchar(50) NOT NULL,
+  `confirmed_by` int(11) NOT NULL,
+  `action_date` timestamp NOT NULL DEFAULT current_timestamp(),
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -169,7 +154,7 @@ CREATE TABLE `faculty_profiles` (
 --
 
 INSERT INTO `faculty_profiles` (`id`, `user_id`, `department_id`, `position`, `employment_type`, `specialization`, `education`, `phone`, `office_location`, `consultation_hours`, `hire_date`, `biography`, `created_at`, `updated_at`) VALUES
-(2, 30, 7, 'Instructor', 'Full-time', 'dssds', NULL, '+63 091 657 8908', NULL, 'fdfdfd', '2025-09-19', NULL, '2025-09-18 08:08:50', '2025-09-18 08:08:50');
+(7, 70, NULL, 'Instructor', 'Full-time', '', NULL, '+63 091 657 8908', NULL, '', '2025-09-26', NULL, '2025-09-25 16:30:48', '2025-09-25 16:30:48');
 
 -- --------------------------------------------------------
 
@@ -231,13 +216,8 @@ CREATE TABLE `programs` (
 --
 
 INSERT INTO `programs` (`id`, `program_code`, `program_name`, `department_id`, `degree_type`, `duration_years`, `description`, `status`, `created_at`) VALUES
-(1, 'BSCS', 'Bachelor of Science in Computer Science', 5, 'bachelor', 4, 'Four-year degree program in Computer Science', 'active', '2025-09-18 18:38:32'),
-(2, 'BSIT', 'Bachelor of Science in Information Technology', 5, 'bachelor', 4, 'Four-year degree program in Information Technology', 'active', '2025-09-18 18:38:32'),
-(3, 'BSE', 'Bachelor of Science in Engineering', 6, 'bachelor', 5, 'Five-year degree program in Engineering', 'active', '2025-09-18 18:38:32'),
-(4, 'BSBA', 'Bachelor of Science in Business Administration', 7, 'bachelor', 4, 'Four-year degree program in Business Administration', 'active', '2025-09-18 18:38:32'),
-(5, 'BEED', 'Bachelor of Elementary Education', 8, 'bachelor', 4, 'Four-year degree program in Elementary Education', 'active', '2025-09-18 18:38:32'),
-(6, 'BSED', 'Bachelor of Secondary Education', 8, 'bachelor', 4, 'Four-year degree program in Secondary Education', 'active', '2025-09-18 18:38:32'),
-(7, 'BA', 'Bachelor of Arts', 9, 'bachelor', 4, 'Four-year degree program in Liberal Arts', 'active', '2025-09-18 18:38:32');
+(13, '001', 'BSCS', 12, 'bachelor', 4, '', 'active', '2025-09-26 07:23:33'),
+(14, '002', 'BSIS', 12, 'bachelor', 4, '', 'active', '2025-09-26 07:25:51');
 
 -- --------------------------------------------------------
 
@@ -273,6 +253,14 @@ CREATE TABLE `sections` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `sections`
+--
+
+INSERT INTO `sections` (`id`, `section_name`, `year_level`, `program_id`, `academic_year_id`, `adviser_id`, `max_students`, `status`, `created_at`) VALUES
+(63, 'B', '2nd', 13, 3, 70, 40, 'active', '2025-09-26 07:23:57'),
+(64, 'A', '2nd', 13, 3, NULL, 40, 'active', '2025-09-26 07:26:26');
+
 -- --------------------------------------------------------
 
 --
@@ -285,12 +273,14 @@ CREATE TABLE `student_profiles` (
   `year_level` enum('1st','2nd','3rd','4th','5th') NOT NULL,
   `program_id` int(11) NOT NULL,
   `section_id` int(11) DEFAULT NULL,
+  `academic_year_id` int(11) NOT NULL,
   `admission_date` date NOT NULL,
   `student_type` enum('regular','irregular','transferee','returning') DEFAULT 'regular',
   `guardian_name` varchar(100) DEFAULT NULL,
   `guardian_contact` varchar(20) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `student_status` enum('regular','irregular','probation','suspended','graduated','dropped','transferred') DEFAULT 'regular'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -308,6 +298,31 @@ CREATE TABLE `student_rankings` (
   `total_students` int(11) NOT NULL,
   `calculated_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `subjects`
+--
+
+CREATE TABLE `subjects` (
+  `id` int(11) NOT NULL,
+  `course_code` varchar(20) NOT NULL,
+  `subject_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `credits` int(11) NOT NULL DEFAULT 3,
+  `department_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status` enum('active','inactive') DEFAULT 'active'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `subjects`
+--
+
+INSERT INTO `subjects` (`id`, `course_code`, `subject_name`, `description`, `credits`, `department_id`, `created_at`, `status`) VALUES
+(32, 'CS101', 'Introduction of Programming', '', 3, 12, '2025-09-26 07:24:06', 'active'),
+(33, 'CS102', 'Industrial Safety', '', 3, 12, '2025-09-26 07:25:28', 'active');
 
 -- --------------------------------------------------------
 
@@ -357,7 +372,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `first_name`, `last_name`, `role`, `status`, `student_id`, `employee_id`, `birth_date`, `gender`, `address`, `contact_number`, `emergency_contact`, `emergency_phone`, `profile_image`, `created_at`, `updated_at`) VALUES
-(30, 'ldenver', 'larrydenverbiaco@gmail.com', '$2y$10$9Vdzs/nw37Fhxkkr0/OwauYElYRk8WH/6PQ9oT9a83r3Xh9C0Q5ry', 'Larry ', 'Denver', 'faculty', 'active', NULL, '2021-1863-A', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-18 08:08:50', '2025-09-18 08:08:50');
+(70, 'jdelacruz', 'larrydenverbiaco@gmail.com', '$2y$10$GHhfCVOP2YlxRYmCy9rBBOpnkmwn/iCC4TzTooUMdmWB3L9.B4j0S', 'juan', 'dela cruz', 'faculty', 'active', NULL, '2021-1863-A', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-25 16:30:48', '2025-09-25 16:30:48');
 
 -- --------------------------------------------------------
 
@@ -376,6 +391,24 @@ CREATE TABLE `user_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Dumping data for table `user_logs`
+--
+
+INSERT INTO `user_logs` (`id`, `user_id`, `activity_type`, `description`, `ip_address`, `user_agent`, `created_at`) VALUES
+(13, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 07:31:38'),
+(15, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 17:59:51'),
+(16, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 18:23:57'),
+(17, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:12:39'),
+(18, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:21:08'),
+(19, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:22:40'),
+(20, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:24:31'),
+(21, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:30:54'),
+(22, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:33:44'),
+(23, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-22 19:36:07'),
+(24, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-25 16:33:09'),
+(25, NULL, 'login', 'Student logged in', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', '2025-09-26 07:42:56');
+
+--
 -- Indexes for dumped tables
 --
 
@@ -390,18 +423,10 @@ ALTER TABLE `academic_years`
 --
 ALTER TABLE `class_sections`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `course_id` (`course_id`),
+  ADD KEY `subject_id` (`subject_id`),
   ADD KEY `faculty_id` (`faculty_id`),
   ADD KEY `academic_year_id` (`academic_year_id`),
   ADD KEY `section_id_fk` (`section_id`);
-
---
--- Indexes for table `courses`
---
-ALTER TABLE `courses`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `course_code` (`course_code`),
-  ADD KEY `department_id` (`department_id`);
 
 --
 -- Indexes for table `departments`
@@ -418,6 +443,15 @@ ALTER TABLE `enrollments`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_enrollment` (`student_id`,`class_section_id`),
   ADD KEY `class_section_id` (`class_section_id`);
+
+--
+-- Indexes for table `enrollment_logs`
+--
+ALTER TABLE `enrollment_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_student_id` (`student_id`),
+  ADD KEY `idx_action_type` (`action_type`),
+  ADD KEY `idx_confirmed_by` (`confirmed_by`);
 
 --
 -- Indexes for table `faculty_profiles`
@@ -475,7 +509,8 @@ ALTER TABLE `student_profiles`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `user_id` (`user_id`),
   ADD KEY `program_id` (`program_id`),
-  ADD KEY `section_id` (`section_id`);
+  ADD KEY `section_id` (`section_id`),
+  ADD KEY `academic_year_id` (`academic_year_id`);
 
 --
 -- Indexes for table `student_rankings`
@@ -484,6 +519,14 @@ ALTER TABLE `student_rankings`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_student_year` (`student_id`,`academic_year_id`),
   ADD KEY `academic_year_id` (`academic_year_id`);
+
+--
+-- Indexes for table `subjects`
+--
+ALTER TABLE `subjects`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `course_code` (`course_code`),
+  ADD KEY `department_id` (`department_id`);
 
 --
 -- Indexes for table `system_settings`
@@ -521,37 +564,37 @@ ALTER TABLE `user_logs`
 -- AUTO_INCREMENT for table `academic_years`
 --
 ALTER TABLE `academic_years`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `class_sections`
 --
 ALTER TABLE `class_sections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
-
---
--- AUTO_INCREMENT for table `courses`
---
-ALTER TABLE `courses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `departments`
 --
 ALTER TABLE `departments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `enrollments`
 --
 ALTER TABLE `enrollments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+
+--
+-- AUTO_INCREMENT for table `enrollment_logs`
+--
+ALTER TABLE `enrollment_logs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `faculty_profiles`
 --
 ALTER TABLE `faculty_profiles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `grades`
@@ -569,7 +612,7 @@ ALTER TABLE `grade_appeals`
 -- AUTO_INCREMENT for table `programs`
 --
 ALTER TABLE `programs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `reports`
@@ -581,19 +624,25 @@ ALTER TABLE `reports`
 -- AUTO_INCREMENT for table `sections`
 --
 ALTER TABLE `sections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `student_profiles`
 --
 ALTER TABLE `student_profiles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `student_rankings`
 --
 ALTER TABLE `student_rankings`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+
+--
+-- AUTO_INCREMENT for table `subjects`
+--
+ALTER TABLE `subjects`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `system_settings`
@@ -605,13 +654,13 @@ ALTER TABLE `system_settings`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
 
 --
 -- AUTO_INCREMENT for table `user_logs`
 --
 ALTER TABLE `user_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- Constraints for dumped tables
@@ -621,16 +670,10 @@ ALTER TABLE `user_logs`
 -- Constraints for table `class_sections`
 --
 ALTER TABLE `class_sections`
-  ADD CONSTRAINT `class_sections_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `class_sections_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `class_sections_ibfk_2` FOREIGN KEY (`faculty_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `class_sections_ibfk_3` FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `class_sections_ibfk_4` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `courses`
---
-ALTER TABLE `courses`
-  ADD CONSTRAINT `courses_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `departments`
@@ -644,6 +687,13 @@ ALTER TABLE `departments`
 ALTER TABLE `enrollments`
   ADD CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`class_section_id`) REFERENCES `class_sections` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `enrollment_logs`
+--
+ALTER TABLE `enrollment_logs`
+  ADD CONSTRAINT `enrollment_logs_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `enrollment_logs_ibfk_2` FOREIGN KEY (`confirmed_by`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `faculty_profiles`
@@ -693,7 +743,8 @@ ALTER TABLE `sections`
 ALTER TABLE `student_profiles`
   ADD CONSTRAINT `student_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `student_profiles_ibfk_2` FOREIGN KEY (`program_id`) REFERENCES `programs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `student_profiles_ibfk_3` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `student_profiles_ibfk_3` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `student_profiles_ibfk_4` FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `student_rankings`
@@ -701,6 +752,12 @@ ALTER TABLE `student_profiles`
 ALTER TABLE `student_rankings`
   ADD CONSTRAINT `student_rankings_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `student_rankings_ibfk_2` FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `subjects`
+--
+ALTER TABLE `subjects`
+  ADD CONSTRAINT `subjects_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `system_settings`
