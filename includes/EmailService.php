@@ -2,13 +2,15 @@
 // Email Service Class
 // includes/EmailService.php
 
+require_once __DIR__ . '/../vendor/autoload.php';
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class EmailService {
     private $config;
-    private $mail;
+    public $mail; // Changed from private to public
     
     public function __construct() {
         // Load email configuration
@@ -40,6 +42,38 @@ class EmailService {
             
         } catch (Exception $e) {
             throw new Exception("SMTP Setup failed: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Send custom email with provided content
+     */
+    public function sendCustomEmail($to, $toName, $subject, $htmlBody, $textBody = null) {
+        try {
+            // Clear any previous recipients
+            $this->mail->clearAddresses();
+            
+            // Set recipient
+            $this->mail->addAddress($to, $toName);
+            
+            // Set content
+            $this->mail->Subject = $subject;
+            $this->mail->Body = $htmlBody;
+            $this->mail->AltBody = $textBody ?: strip_tags($htmlBody);
+            
+            // Send email
+            $result = $this->mail->send();
+            
+            return [
+                'success' => $result,
+                'message' => $result ? 'Email sent successfully' : 'Failed to send email'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Email sending failed: ' . $e->getMessage()
+            ];
         }
     }
     

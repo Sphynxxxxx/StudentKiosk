@@ -40,6 +40,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <span>Manage Grades</span>
             </a>
         </li>
+
+        <li>
+            <a href="manage_pre_enrollment.php" class="<?php echo ($current_page == 'manage_pre_enrollment.php') ? 'active' : ''; ?>">
+                <i class="fas fa-sync-alt"></i>
+                <span>Manage Pre-Enrollment</span>
+            </a>
+        </li>
         
         <li>
             <a href="generate_report.php" class="<?php echo ($current_page == 'generate_report.php') ? 'active' : ''; ?>">

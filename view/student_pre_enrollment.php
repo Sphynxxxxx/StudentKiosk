@@ -142,6 +142,7 @@ try {
                 u.last_name as faculty_last_name,
                 COUNT(e.id) as enrolled_count,
                 CASE WHEN e_student.id IS NOT NULL THEN 1 ELSE 0 END as is_enrolled,
+                CASE WHEN e_pending.id IS NOT NULL THEN 1 ELSE 0 END as is_pending,
                 sec.year_level as section_year_level,
                 sec.program_id as section_program_id
             FROM class_sections cs
@@ -152,6 +153,8 @@ try {
             LEFT JOIN enrollments e ON cs.id = e.class_section_id AND e.status = 'enrolled'
             LEFT JOIN enrollments e_student ON cs.id = e_student.class_section_id 
                 AND e_student.student_id = ? AND e_student.status = 'enrolled'
+            LEFT JOIN enrollments e_pending ON cs.id = e_pending.class_section_id 
+                AND e_pending.student_id = ? AND e_pending.status = 'pending'
             WHERE ay.id = ? 
                 AND cs.status = 'active'
                 AND s.status = 'active'
@@ -173,69 +176,107 @@ try {
         ");
         
         $stmt->execute([
-            $_SESSION['student_id'], 
-            $selected_ay,
-            $student['section_id'],  // param 3
-            $student['section_id'],  // param 4  
-            $student['section_id'],  // param 5
-            $student['year_level'],  // param 6
-            $student['program_id'],  // param 7
-            $student['year_level'],  // param 8
-            $student['program_id'],  // param 9
-            $selected_ay             // param 10
+            $_SESSION['student_id'], // param 1 - for enrolled check
+            $_SESSION['student_id'], // param 2 - for pending check
+            $selected_ay,            // param 3
+            $student['section_id'],  // param 4
+            $student['section_id'],  // param 5  
+            $student['section_id'],  // param 6
+            $student['year_level'],  // param 7
+            $student['program_id'],  // param 8
+            $student['year_level'],  // param 9
+            $student['program_id'],  // param 10
+            $selected_ay             // param 11
         ]);
         $available_sections = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Handle enrollment actions
+    // Handle enrollment actions - UPDATED to use 'pending' status
     if ($_POST && isset($_POST['enroll_subjects']) && is_array($_POST['enroll_subjects'])) {
         $enrolled_count = 0;
         $error_count = 0;
+        $error_messages = [];
         
-        foreach ($_POST['enroll_subjects'] as $class_section_id) {
-            $class_section_id = (int)$class_section_id;
-            
-            // Check if student is already enrolled
-            $stmt = $pdo->prepare("
-                SELECT id FROM enrollments 
-                WHERE student_id = ? AND class_section_id = ? AND status = 'enrolled'
-            ");
-            $stmt->execute([$_SESSION['student_id'], $class_section_id]);
-            
-            if (!$stmt->fetch()) {
-                // Check if class is not full
+        // Start transaction for data consistency
+        $pdo->beginTransaction();
+        
+        try {
+            foreach ($_POST['enroll_subjects'] as $class_section_id) {
+                $class_section_id = (int)$class_section_id;
+                
+                // Check if student is already enrolled or has pending enrollment
                 $stmt = $pdo->prepare("
-                    SELECT cs.max_students, COUNT(e.id) as enrolled_count
+                    SELECT id, status FROM enrollments 
+                    WHERE student_id = ? AND class_section_id = ? 
+                    AND status IN ('enrolled', 'pending')
+                ");
+                $stmt->execute([$_SESSION['student_id'], $class_section_id]);
+                $existing_enrollment = $stmt->fetch();
+                
+                if ($existing_enrollment) {
+                    if ($existing_enrollment['status'] === 'enrolled') {
+                        $error_messages[] = "Already enrolled in one of the selected subjects.";
+                    } else if ($existing_enrollment['status'] === 'pending') {
+                        $error_messages[] = "Already have a pending enrollment for one of the selected subjects.";
+                    }
+                    $error_count++;
+                    continue;
+                }
+                
+                // Get class information for validation
+                $stmt = $pdo->prepare("
+                    SELECT cs.max_students, s.course_code, s.subject_name,
+                           COUNT(e.id) as enrolled_count
                     FROM class_sections cs
+                    INNER JOIN subjects s ON cs.subject_id = s.id
                     LEFT JOIN enrollments e ON cs.id = e.class_section_id AND e.status = 'enrolled'
                     WHERE cs.id = ?
-                    GROUP BY cs.id, cs.max_students
+                    GROUP BY cs.id, cs.max_students, s.course_code, s.subject_name
                 ");
                 $stmt->execute([$class_section_id]);
                 $class_info = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                if ($class_info && $class_info['enrolled_count'] < $class_info['max_students']) {
-                    // Enroll student
-                    $stmt = $pdo->prepare("
-                        INSERT INTO enrollments (student_id, class_section_id, status)
-                        VALUES (?, ?, 'enrolled')
-                    ");
-                    $stmt->execute([$_SESSION['student_id'], $class_section_id]);
-                    $enrolled_count++;
-                } else {
+                if (!$class_info) {
+                    $error_messages[] = "Class section not found.";
                     $error_count++;
+                    continue;
                 }
+                
+                // Check if class has available slots (considering only enrolled students, not pending)
+                if ($class_info['enrolled_count'] >= $class_info['max_students']) {
+                    $error_messages[] = "Class for {$class_info['course_code']} is already full.";
+                    $error_count++;
+                    continue;
+                }
+                
+                // Submit enrollment request with 'pending' status
+                $stmt = $pdo->prepare("
+                    INSERT INTO enrollments (student_id, class_section_id, status, enrollment_date)
+                    VALUES (?, ?, 'pending', NOW())
+                ");
+                $stmt->execute([$_SESSION['student_id'], $class_section_id]);
+                $enrolled_count++;
             }
+            
+            // Commit transaction
+            $pdo->commit();
+            
+            // Set success/error messages
+            if ($enrolled_count > 0) {
+                $success_message = "Successfully submitted $enrolled_count enrollment request(s)! Your enrollments are now pending approval from the registrar.";
+            }
+            if ($error_count > 0) {
+                $error_message = implode(" ", array_unique($error_messages));
+            }
+            
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $pdo->rollBack();
+            $error_message = "An error occurred while processing your enrollment request. Please try again.";
+            error_log("Pre-enrollment error: " . $e->getMessage());
         }
         
-        if ($enrolled_count > 0) {
-            $success_message = "Successfully enrolled in $enrolled_count subject(s)!";
-        }
-        if ($error_count > 0) {
-            $error_message = "$error_count subject(s) could not be enrolled (already enrolled or class full).";
-        }
-        
-        // Refresh data
+        // Refresh data after enrollment
         header("Location: " . $_SERVER['REQUEST_URI']);
         exit();
     }
@@ -453,17 +494,6 @@ try {
         </div>
         <?php else: ?>
 
-        <!-- Show filtering info -->
-        <!--<div class="filter-info">
-            <i class="fas fa-info-circle"></i>
-            <strong>Showing subjects for:</strong> 
-            <?php echo htmlspecialchars($student['program_name'] ?? 'Unknown Program'); ?> - 
-            <?php echo htmlspecialchars($student['year_level'] ?? 'Unknown Year'); ?> Year
-            <?php if (!empty($student['section_name'])): ?>
-                - Section <?php echo htmlspecialchars($student['section_name']); ?>
-            <?php endif; ?>
-        </div>-->
-
         <!-- Enrollment Form -->
         <div class="enrollment-form">
             <!-- Student Details -->
@@ -471,7 +501,7 @@ try {
                 <div class="details-grid">
                     <div class="detail-item">
                         <span class="detail-label">Course:</span>
-                        <span class="detail-value"><?php echo htmlspecialchars(($student['program_code'] ?? '') . ' - ' . ($student['program_name'] ?? 'Not Set')); ?></span>
+                        <span class="detail-value"><?php echo htmlspecialchars(($student['program_name'] ?? 'Not Set')); ?></span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Year & Section:</span>
@@ -504,15 +534,15 @@ try {
                 <div class="subjects-section">
                     <div class="legend">
                         <strong>Instructions:</strong><br>
-                        * Click checkbox to select subject - <span class="red-text">STRICTLY NO CHANGES</span><br>
-                        * Please check that you read the special instruction<br>
-                        * Indicates your payment status in this semester data.<br>
+                        * Click checkbox to select subject for pre-enrollment request<br>
+                        * All enrollment requests require <span class="red-text">REGISTRAR APPROVAL</span><br>
+                        * You will be notified via email once your enrollment is approved or rejected<br>
                         * Only subjects matching your program, year level, and section are shown.
                     </div>
 
                     <div class="section-header">
                         <i class="fas fa-list"></i>
-                        <h3>Available Subjects for Enrollment</h3>
+                        <h3>Available Subjects for Pre-Enrollment</h3>
                     </div>
 
                     <table class="subjects-table">
@@ -533,7 +563,7 @@ try {
                             <?php foreach ($available_sections as $section): ?>
                             <tr>
                                 <td class="checkbox-cell">
-                                    <?php if (!$section['is_enrolled'] && $section['enrolled_count'] < $section['max_students']): ?>
+                                    <?php if (!$section['is_enrolled'] && !$section['is_pending'] && $section['enrolled_count'] < $section['max_students']): ?>
                                     <input type="checkbox" name="enroll_subjects[]" value="<?php echo $section['class_section_id']; ?>">
                                     <?php endif; ?>
                                 </td>
@@ -547,6 +577,8 @@ try {
                                 <td class="status-cell">
                                     <?php if ($section['is_enrolled']): ?>
                                     <span class="status-badge status-enrolled">Enrolled</span>
+                                    <?php elseif ($section['is_pending']): ?>
+                                    <span class="status-badge status-pending">Pending Approval</span>
                                     <?php elseif ($section['enrolled_count'] >= $section['max_students']): ?>
                                     <span class="status-badge status-full">Full</span>
                                     <?php else: ?>
@@ -561,8 +593,8 @@ try {
 
                 <div class="enroll-button-container">
                     <button type="submit" class="enroll-button" onclick="return validateAndConfirm()">
-                        <i class="fas fa-check-circle"></i>
-                        Enroll Selected Subjects
+                        <i class="fas fa-paper-plane"></i>
+                        Submit Pre-Enrollment Request
                     </button>
                 </div>
             </form>
@@ -586,17 +618,17 @@ try {
             }
         });
 
-        // Validation and confirmation
+        // Validation and confirmation - UPDATED messaging
         function validateAndConfirm() {
             const checkedBoxes = document.querySelectorAll('input[name="enroll_subjects[]"]:checked');
             
             if (checkedBoxes.length === 0) {
-                alert('Please select at least one subject to enroll.');
+                alert('Please select at least one subject for pre-enrollment.');
                 return false;
             }
             
             const subjectCount = checkedBoxes.length;
-            const message = `Are you sure you want to enroll in ${subjectCount} subject${subjectCount > 1 ? 's' : ''}?`;
+            const message = `Are you sure you want to submit a pre-enrollment request for ${subjectCount} subject${subjectCount > 1 ? 's' : ''}?\n\nYour request will be sent to the registrar for approval. You will be notified via email once your enrollment is processed.`;
             
             return confirm(message);
         }
@@ -615,6 +647,18 @@ try {
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
         }
         
         .alert-warning {
@@ -638,6 +682,184 @@ try {
         .red-text {
             color: #dc3545;
             font-weight: bold;
+        }
+        
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .status-enrolled {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .status-available {
+            background-color: #cce7ff;
+            color: #0056b3;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .status-full {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        /* Enhanced button styling for pre-enrollment */
+        .enroll-button {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+        
+        .enroll-button:hover {
+            background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+        }
+        
+        .enroll-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* Improved legend styling */
+        .legend {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #007bff;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        
+        /* Status color classes for student status */
+        .status-regular {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .status-irregular {
+            color: #ffc107;
+            font-weight: 600;
+        }
+        
+        .status-probation {
+            color: #fd7e14;
+            font-weight: 600;
+        }
+        
+        .status-suspended {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .status-graduated {
+            color: #6f42c1;
+            font-weight: 600;
+        }
+        
+        .status-inactive {
+            color: #6c757d;
+            font-weight: 600;
+        }
+        
+        .status-leave {
+            color: #17a2b8;
+            font-weight: 600;
+        }
+        
+        .status-returning {
+            color: #20c997;
+            font-weight: 600;
+        }
+        
+        .status-default {
+            color: #343a40;
+            font-weight: 600;
+        }
+        
+        /* Responsive improvements for mobile */
+        @media (max-width: 768px) {
+            .student-info-card {
+                padding: 15px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .subjects-table {
+                font-size: 0.8rem;
+            }
+            
+            .subjects-table th,
+            .subjects-table td {
+                padding: 8px 4px;
+            }
+            
+            .enroll-button {
+                width: 100%;
+                padding: 15px;
+                font-size: 1.1rem;
+            }
+            
+            .legend {
+                padding: 12px 15px;
+                font-size: 0.85rem;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            .header,
+            .filters-section,
+            .enroll-button-container,
+            .alert {
+                display: none !important;
+            }
+            
+            .main-container {
+                margin: 0;
+                padding: 20px;
+            }
+            
+            .subjects-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            
+            .subjects-table th,
+            .subjects-table td {
+                border: 1px solid #000;
+                padding: 8px;
+            }
         }
     </style>
 </body>

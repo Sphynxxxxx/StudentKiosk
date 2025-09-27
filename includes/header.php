@@ -19,6 +19,11 @@ $page_info = [
         'icon' => 'fas fa-user-graduate',
         'description' => 'Add, edit, and manage student records'
     ],
+    'manage_pre_enrollment' => [
+        'title' => 'Manage Pre-Enrollment',
+        'icon' => 'fas fa-sync-alt',
+        'description' => 'Accept or reject student pre-enrollment requests'
+    ],
     'manage_grades' => [
         'title' => 'Manage Grades',
         'icon' => 'fas fa-clipboard-list',
@@ -39,10 +44,10 @@ $page_info = [
         'icon' => 'fas fa-trophy',
         'description' => 'View student rankings and academic performance'
     ],
-    'manage_courses' => [
-        'title' => 'Manage Courses',
+    'manage_subjects' => [
+        'title' => 'Manage Subjects',
         'icon' => 'fas fa-book',
-        'description' => 'Add, edit, and manage course offerings'
+        'description' => 'Add, edit, and manage subjects offerings'
     ],
     'manage_departments' => [
         'title' => 'Colleges & Courses',
