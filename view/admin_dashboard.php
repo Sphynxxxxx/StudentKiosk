@@ -228,7 +228,6 @@ $program_stats = $stmt->fetch(PDO::FETCH_ASSOC);
                                     <div class="department-info">
                                         <h4><?php echo htmlspecialchars($dept['name']); ?></h4>
                                         <small style="color: var(--gray-600);">
-                                            Code: <?php echo htmlspecialchars($dept['code']); ?>
                                         </small>
                                     </div>
                                     <div class="department-stats">

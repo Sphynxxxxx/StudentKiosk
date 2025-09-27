@@ -787,7 +787,7 @@ try {
                                     $stmt->execute();
                                     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     foreach ($programs as $program) {
-                                        echo "<option value=\"{$program['id']}\">{$program['program_code']} - {$program['program_name']}</option>";
+                                        echo "<option value=\"{$program['id']}\">{$program['program_name']}</option>";
                                     }
                                 } catch (PDOException $e) {
                                     echo "<option value=\"\" disabled>Error loading programs</option>";
@@ -1002,7 +1002,7 @@ try {
                                     $stmt->execute();
                                     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     foreach ($programs as $program) {
-                                        echo "<option value=\"{$program['id']}\">{$program['program_code']} - {$program['program_name']}</option>";
+                                        echo "<option value=\"{$program['id']}\">{$program['program_name']}</option>";
                                     }
                                 } catch (PDOException $e) {
                                     echo "<option value=\"\" disabled>Error loading programs</option>";

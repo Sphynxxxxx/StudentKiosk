@@ -596,7 +596,7 @@ try {
                             <option value="">Select Department</option>
                             <?php foreach ($departments as $dept): ?>
                                 <option value="<?php echo $dept['id']; ?>">
-                                    <?php echo htmlspecialchars($dept['name'] . ' (' . $dept['code'] . ')'); ?>
+                                    <?php echo htmlspecialchars($dept['name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -710,7 +710,7 @@ try {
                             <option value="">Select Department</option>
                             <?php foreach ($departments as $dept): ?>
                                 <option value="<?php echo $dept['id']; ?>">
-                                    <?php echo htmlspecialchars($dept['name'] . ' (' . $dept['code'] . ')'); ?>
+                                    <?php echo htmlspecialchars($dept['name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
