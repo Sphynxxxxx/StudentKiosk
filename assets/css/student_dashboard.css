@@ -490,33 +490,27 @@ body {
 
 /* Grade Color Classes */
 .grade-excellent {
-    background: #27ae60;
-    color: white;
+    color: black;
 }
 
 .grade-very-good {
-    background: #2ecc71;
-    color: white;
+    color: black;
 }
 
 .grade-good {
-    background: #1e3a8a;
-    color: white;
+    color: black;
 }
 
 .grade-satisfactory {
-    background: #f39c12;
-    color: white;
+    color: black;
 }
 
 .grade-passing {
-    background: #e67e22;
-    color: white;
+    color: black;
 }
 
 .grade-failing {
-    background: #e74c3c;
-    color: white;
+    color: black;
 }
 
 .letter-grade {
