@@ -983,11 +983,11 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                             <h3 class="card-title">
                                 <i class="fas fa-trophy"></i> Student Rankings - <?php echo htmlspecialchars($current_program['program_name']); ?>
                             </h3>
-                            <div style="display: flex; gap: 10px;">
+                            <!--<div style="display: flex; gap: 10px;">
                                 <button type="button" class="btn btn-outline" onclick="window.print()">
                                     <i class="fas fa-print"></i> Print
                                 </button>
-                            </div>
+                            </div>-->
                         </div>
 
                         <div class="card-content">
@@ -1215,6 +1215,10 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                         <div class="profile-value">${escapeHtml(student.student_number)}</div>
                     </div>
                     <div class="profile-item">
+                        <div class="profile-label">Email</div>
+                        <div class="profile-value">${escapeHtml(student.email)}</div>
+                    </div>
+                    <div class="profile-item">
                         <div class="profile-label">Program</div>
                         <div class="profile-value">${escapeHtml(student.program_name)}</div>
                     </div>
@@ -1230,19 +1234,15 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                         <div class="profile-label">Status</div>
                         <div class="profile-value">${escapeHtml(student.student_status ? student.student_status.charAt(0).toUpperCase() + student.student_status.slice(1) : 'Regular')}</div>
                     </div>
-                    <div class="profile-item">
-                        <div class="profile-label">Email</div>
-                        <div class="profile-value">${escapeHtml(student.email)}</div>
-                    </div>
                 </div>
                 
                 <div class="action-buttons">
                     <button class="btn-compose" onclick="toggleComposeSection()">
                         <i class="fas fa-envelope"></i> Compose Message
                     </button>
-                    <button class="btn btn-outline" onclick="printStudentProfile()">
+                    <!--<button class="btn btn-outline" onclick="printStudentProfile()">
                         <i class="fas fa-print"></i> Print Profile
-                    </button>
+                    </button>-->
                 </div>
                 
                 <!-- Compose Message Section -->
@@ -1264,9 +1264,8 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                             <label for="emailTemplate">Quick Templates:</label>
                             <select id="emailTemplate" onchange="applyTemplate()" class="form-group">
                                 <option value="">-- Select a template --</option>
+                                <option value="latin_honors">Latin Honors Qualification</option>
                                 <option value="congratulations">Congratulations Message</option>
-                                <option value="improvement">Academic Improvement Notice</option>
-                                <option value="meeting">Meeting Request</option>
                                 <option value="reminder">Grade Submission Reminder</option>
                                 <option value="custom">Custom Message</option>
                             </select>
@@ -1367,19 +1366,14 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
             const messageField = document.getElementById('emailMessage');
             
             switch(template) {
+                case 'latin_honors':
+                    subjectField.value = 'Congratulations! You Qualify for Latin Honors';
+                    messageField.value = 'Dear Student,\n\nWe are delighted to inform you that based on your outstanding academic performance, you have qualified for Latin Honors recognition! as [Rank]\n\nYour exceptional dedication, hard work, and consistent excellence throughout your academic journey have earned you this prestigious distinction. This achievement reflects not only your intellectual capabilities but also your commitment to academic excellence.\n\nYour current GPA places you among the top-performing students in your program. We encourage you to maintain this excellent performance as you continue your studies.\n\nPlease visit the Registrar\'s Office for more information about the Latin Honors recognition ceremony and requirements.\n\nOnce again, congratulations on this remarkable achievement!\n\nBest regards,\n[Your Name]\n[Your Position]\nIloilo State University of Science and Technology';
+                    break;
+                
                 case 'congratulations':
                     subjectField.value = 'Congratulations on Your Academic Achievement!';
                     messageField.value = 'Dear Student,\n\nCongratulations on your outstanding academic performance! Your dedication and hard work have truly paid off. Keep up the excellent work!\n\nBest regards,\n[Your Name]';
-                    break;
-                    
-                case 'improvement':
-                    subjectField.value = 'Academic Performance Discussion';
-                    messageField.value = 'Dear Student,\n\nI hope this message finds you well. I would like to discuss your recent academic performance and explore ways we can help you improve. Please let me know a convenient time for us to meet.\n\nBest regards,\n[Your Name]';
-                    break;
-                    
-                case 'meeting':
-                    subjectField.value = 'Meeting Request - Academic Discussion';
-                    messageField.value = 'Dear Student,\n\nI would like to schedule a meeting with you to discuss your academic progress. Please let me know your available times this week.\n\nBest regards,\n[Your Name]';
                     break;
                     
                 case 'reminder':
@@ -1416,7 +1410,7 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
             formData.append('message', message);
             
             // Send email via AJAX
-            fetch('../api/send_student_email.php', {
+            fetch('send_student_email.php', {
                 method: 'POST',
                 body: formData
             })

@@ -149,9 +149,9 @@ $current_info = $page_info[$current_page] ?? [
                 <i class="fas fa-chevron-down"></i>
             </button>
             <div class="user-dropdown-content" id="userDropdown">
-                <a href="profile.php">
+                <!--<a href="profile.php">
                     <i class="fas fa-user"></i> Profile
-                </a>
+                </a>-->
                 <a href="system_settings.php">
                     <i class="fas fa-cog"></i> Settings
                 </a>

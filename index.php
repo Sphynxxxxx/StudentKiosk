@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .logo {
             display: inline-flex;
             align-items: center;
+            justify-self: center;
             gap: 12px;
             margin-bottom: 10px;
         }
@@ -118,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .portal-title {
             font-size: 1.5rem;
-            color: #4285f4;
+            color: #000000ff;
             font-weight: 600;
             margin: 0;
         }
@@ -176,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .login-btn {
             width: 100%;
             padding: 14px;
-            background: #4285f4;
+            background: #1e3a8a;
             color: white;
             border: none;
             border-radius: 8px;

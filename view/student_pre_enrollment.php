@@ -339,6 +339,10 @@ try {
                             <i class="fas fa-file-alt"></i>
                             <span>Pre-enrollment</span>
                         </a>
+                        <a href="appeal_grade.php" class="dropdown-item">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Grade Appeal</span>
+                        </a>
                         <a href="settings.php" class="dropdown-item">
                             <i class="fas fa-cog"></i>
                             <span>Settings</span>

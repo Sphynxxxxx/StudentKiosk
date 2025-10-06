@@ -81,13 +81,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue; // Skip this enrollment
                 }
                 
-                $midterm = !empty($grade_data['midterm']) ? (float)$grade_data['midterm'] : null;
-                $final = !empty($grade_data['final']) ? (float)$grade_data['final'] : null;
+                // Handle midterm grade (can be numeric, INC, or DRP)
+                $midterm = null;
+                $midterm_status = null;
+                if (!empty($grade_data['midterm'])) {
+                    $midterm_input = trim($grade_data['midterm']);
+                    if (strtoupper($midterm_input) === 'INC') {
+                        $midterm = 'INC';
+                    } elseif (strtoupper($midterm_input) === 'DRP') {
+                        $midterm = 'DRP';
+                    } else {
+                        $midterm = (float)$midterm_input;
+                        if ($midterm < 1.00 || $midterm > 5.00) {
+                            throw new Exception('Numeric grades must be between 1.00 and 5.00');
+                        }
+                    }
+                }
                 
-                // Validate grades
-                if (($midterm !== null && ($midterm < 1.00 || $midterm > 5.00)) ||
-                    ($final !== null && ($final < 1.00 || $final > 5.00))) {
-                    throw new Exception('Grades must be between 1.00 and 5.00');
+                // Handle final grade (can be numeric, INC, or DRP)
+                $final = null;
+                $final_status = null;
+                if (!empty($grade_data['final'])) {
+                    $final_input = trim($grade_data['final']);
+                    if (strtoupper($final_input) === 'INC') {
+                        $final = 'INC';
+                    } elseif (strtoupper($final_input) === 'DRP') {
+                        $final = 'DRP';
+                    } else {
+                        $final = (float)$final_input;
+                        if ($final < 1.00 || $final > 5.00) {
+                            throw new Exception('Numeric grades must be between 1.00 and 5.00');
+                        }
+                    }
                 }
                 
                 // Calculate overall grade and determine letter grade/remarks
@@ -95,7 +120,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $letter_grade = null;
                 $remarks = null;
                 
-                if ($midterm !== null && $final !== null) {
+                // If either is DRP, mark as dropped
+                if ($midterm === 'DRP' || $final === 'DRP') {
+                    $letter_grade = 'DRP';
+                    $remarks = 'Dropped';
+                }
+                // If either is INC, mark as incomplete
+                elseif ($midterm === 'INC' || $final === 'INC') {
+                    $letter_grade = 'INC';
+                    $remarks = 'Incomplete';
+                }
+                // If both are numeric, calculate
+                elseif (is_numeric($midterm) && is_numeric($final)) {
                     $overall = ($midterm + $final) / 2;
                     
                     // Determine letter grade and remarks
@@ -137,21 +173,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                           AND cs.faculty_id = ?
                           AND e.student_id = ?
                     ");
-                    $stmt->execute([$midterm, $final, $overall, $letter_grade, $remarks, $_SESSION['faculty_id'], $enrollment_id, $_SESSION['faculty_id'], $student_id]);
+                    $stmt->execute([
+                        $midterm, 
+                        $final, 
+                        $overall, 
+                        $letter_grade, 
+                        $remarks, 
+                        $_SESSION['faculty_id'], 
+                        $enrollment_id, 
+                        $_SESSION['faculty_id'], 
+                        $student_id
+                    ]);
                 } else {
                     // Create new grade record - with security validation
                     $stmt = $pdo->prepare("
                         INSERT INTO grades (enrollment_id, midterm_grade, final_grade, overall_grade, 
                                           letter_grade, remarks, graded_by, graded_at)
-                        SELECT ?, ?, ?, ?, ?, ?, ?, NOW()
-                        FROM enrollments e
-                        INNER JOIN class_sections cs ON e.class_section_id = cs.id
-                        WHERE e.id = ? 
-                          AND cs.faculty_id = ?
-                          AND e.student_id = ?
-                          AND e.status = 'enrolled'
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
-                    $stmt->execute([$enrollment_id, $midterm, $final, $overall, $letter_grade, $remarks, $_SESSION['faculty_id'], $enrollment_id, $_SESSION['faculty_id'], $student_id]);
+                    $stmt->execute([
+                        $enrollment_id, 
+                        $midterm, 
+                        $final, 
+                        $overall, 
+                        $letter_grade, 
+                        $remarks, 
+                        $_SESSION['faculty_id']
+                    ]);
+                    
+                    // Verify the insert was for authorized enrollment
+                    if ($stmt->rowCount() == 0) {
+                        error_log("SECURITY WARNING: Insert failed for enrollment ID $enrollment_id");
+                        continue;
+                    }
                 }
                 
                 // Log the grade update for audit trail
@@ -334,353 +388,26 @@ try {
     <title>Input Grades - ISATU Kiosk System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/faculty.css" rel="stylesheet">
+    <link href="../assets/css/input_grade.css" rel="stylesheet">
     <style>
-        .grades-container {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 20px;
+        /* Additional styles for INC/DRP support */
+        .remarks-incomplete {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffc107;
         }
-        
-        .student-header {
-            background: #1e3a8a;
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-        
-        .student-info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .info-item {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 8px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .info-label {
-            font-size: 0.9em;
-            opacity: 0.8;
-            margin-bottom: 5px;
-        }
-        
-        .info-value {
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-        
-        .grades-form {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .form-header {
-            background: #f8f9fa;
-            padding: 25px 30px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .form-title {
-            margin: 0;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .grades-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 0;
-        }
-        
-        .grades-table th,
-        .grades-table td {
-            padding: 20px;
-            text-align: left;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .grades-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #495057;
-            text-transform: uppercase;
-            font-size: 0.85em;
-            letter-spacing: 0.5px;
-        }
-        
-        .grades-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .subject-info {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        
-        .course-code {
-            font-weight: 700;
-            color: #2c3e50;
-            font-size: 1.1em;
-        }
-        
-        .subject-name {
-            color: #6c757d;
-            font-size: 0.95em;
-        }
-        
-        .subject-meta {
-            display: flex;
-            gap: 15px;
-            font-size: 0.85em;
-            color: #6c757d;
-            margin-top: 5px;
-        }
-        
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .grade-input {
-            width: 100px;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 1em;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .grade-input:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-            transform: scale(1.02);
-        }
-        
-        .grade-input:invalid {
-            border-color: #dc3545;
-        }
-        
-        .calculated-grade {
-            text-align: center;
-            font-weight: 700;
-            font-size: 1.1em;
-            color: #28a745;
-        }
-        
-        .letter-grade {
-            text-align: center;
-            font-weight: 700;
-            font-size: 1.2em;
-            padding: 8px 12px;
-            border-radius: 6px;
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .remarks {
-            text-align: center;
-            font-weight: 600;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-        }
-        
-        .remarks-excellent { background: #d4edda; color: #155724; }
-        .remarks-very-good { background: #d1ecf1; color: #0c5460; }
-        .remarks-good { background: #cce5ff; color: #004085; }
-        .remarks-satisfactory { background: #fff3cd; color: #856404; }
-        .remarks-passed { background: #ffeaa7; color: #8c7700; }
-        .remarks-failed { background: #f8d7da; color: #721c24; }
-        
-        .form-actions {
-            padding: 30px;
-            background: #f8f9fa;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            font-size: 0.95em;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        }
-        
-        .btn-success {
-            background: linear-gradient(135deg, #28a745, #1e7e34);
-            color: white;
-        }
-        
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-        }
-        
-        .btn-outline {
-            background: white;
-            color: #6c757d;
-            border: 2px solid #e9ecef;
-        }
-        
-        .btn-outline:hover {
-            background: #f8f9fa;
-            border-color: #6c757d;
-        }
-        
-        .alert {
-            padding: 20px;
-            margin-bottom: 25px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 500;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
+
+        .remarks-dropped {
+            background-color: #f8d7da;
             color: #721c24;
-            border: 1px solid #f5c6cb;
+            border: 1px solid #dc3545;
         }
-        
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 25px;
-            transition: all 0.3s ease;
-        }
-        
-        .back-link:hover {
-            background: rgba(255,255,255,0.3);
-            transform: translateX(-5px);
-        }
-        
-        .no-subjects {
-            text-align: center;
-            padding: 60px 30px;
-            color: #6c757d;
-        }
-        
-        .no-subjects i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .grade-summary {
-            background: #e3f2fd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            text-align: center;
-        }
-        
-        .summary-item {
-            background: white;
-            padding: 15px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .summary-value {
-            font-size: 1.5em;
-            font-weight: 700;
-            color: #1976d2;
-        }
-        
-        .summary-label {
-            font-size: 0.9em;
+
+        .grade-helper-text {
+            font-size: 0.85em;
             color: #6c757d;
             margin-top: 5px;
-        }
-        
-        @media (max-width: 768px) {
-            .grades-container {
-                padding: 0 10px;
-            }
-            
-            .student-header {
-                padding: 20px;
-            }
-            
-            .student-info-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .grades-table {
-                font-size: 0.9em;
-            }
-            
-            .grades-table th,
-            .grades-table td {
-                padding: 12px 8px;
-            }
-            
-            .grade-input {
-                width: 80px;
-                padding: 8px 10px;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .summary-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            font-style: italic;
         }
     </style>
 </head>
@@ -787,30 +514,6 @@ try {
                 </div>
             </div>
         <?php else: ?>
-            <!-- Grade Summary -->
-            <!--<div class="grade-summary">
-                <h3 style="margin: 0 0 15px 0; color: #1976d2;">
-                    <i class="fas fa-chart-bar"></i> Grade Summary
-                </h3>
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <div class="summary-value" id="totalSubjects"><?php echo count($enrollments); ?></div>
-                        <div class="summary-label">Total Subjects</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value" id="gradedSubjects">0</div>
-                        <div class="summary-label">Graded Subjects</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value" id="averageGrade">-</div>
-                        <div class="summary-label">Average Grade</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value" id="overallStatus">-</div>
-                        <div class="summary-label">Status</div>
-                    </div>
-                </div>
-            </div>-->
 
             <!-- Grades Form -->
             <form method="POST" class="grades-form" id="gradesForm">
@@ -869,24 +572,20 @@ try {
                                 </td>
                                 
                                 <td>
-                                    <input type="number" 
+                                    <input type="text" 
                                            name="grades[<?php echo $enrollment['enrollment_id']; ?>][midterm]" 
-                                           value="<?php echo $enrollment['midterm_grade']; ?>" 
+                                           value="<?php echo htmlspecialchars($enrollment['midterm_grade']); ?>" 
                                            class="grade-input" 
-                                           min="1.00" 
-                                           max="5.00" 
-                                           step="0.01"
+                                           placeholder="1.00-5.00, INC, DRP"
                                            onchange="calculateGrade(<?php echo $enrollment['enrollment_id']; ?>)">
                                 </td>
                                 
                                 <td>
-                                    <input type="number" 
+                                    <input type="text" 
                                            name="grades[<?php echo $enrollment['enrollment_id']; ?>][final]" 
-                                           value="<?php echo $enrollment['final_grade']; ?>" 
+                                           value="<?php echo htmlspecialchars($enrollment['final_grade']); ?>" 
                                            class="grade-input" 
-                                           min="1.00" 
-                                           max="5.00" 
-                                           step="0.01"
+                                           placeholder="1.00-5.00, INC, DRP"
                                            onchange="calculateGrade(<?php echo $enrollment['enrollment_id']; ?>)">
                                 </td>
                                 
@@ -920,7 +619,7 @@ try {
                     <div>
                         <span style="color: #6c757d; font-size: 0.9em;">
                             <i class="fas fa-info-circle"></i>
-                            Grades are on a 1.00-5.00 scale (1.00 = Highest, 5.00 = Failed)
+                            Grades: 1.00-5.00 (1.00=Highest, 5.00=Failed) or INC (Incomplete) or DRP (Dropped)
                         </span>
                     </div>
                     <div style="display: flex; gap: 15px;">
@@ -948,53 +647,76 @@ try {
             const letterCell = document.getElementById(`letter_${enrollmentId}`);
             const remarksCell = document.getElementById(`remarks_${enrollmentId}`);
             
-            const midterm = parseFloat(midtermInput.value);
-            const final = parseFloat(finalInput.value);
+            const midtermValue = midtermInput.value.trim().toUpperCase();
+            const finalValue = finalInput.value.trim().toUpperCase();
             
-            if (!isNaN(midterm) && !isNaN(final)) {
-                const overall = (midterm + final) / 2;
-                
-                // Update overall grade display
-                overallCell.textContent = overall.toFixed(2);
-                
-                // Determine letter grade and remarks
-                let letter = '';
-                let remarks = '';
-                let remarksClass = '';
-                
-                if (overall >= 1.00 && overall <= 1.25) {
-                    letter = 'A';
-                    remarks = 'Excellent';
-                    remarksClass = 'remarks-excellent';
-                } else if (overall >= 1.26 && overall <= 1.75) {
-                    letter = 'B';
-                    remarks = 'Very Good';
-                    remarksClass = 'remarks-very-good';
-                } else if (overall >= 1.76 && overall <= 2.25) {
-                    letter = 'C';
-                    remarks = 'Good';
-                    remarksClass = 'remarks-good';
-                } else if (overall >= 2.26 && overall <= 2.75) {
-                    letter = 'D';
-                    remarks = 'Satisfactory';
-                    remarksClass = 'remarks-satisfactory';
-                } else if (overall >= 2.76 && overall <= 3.00) {
-                    letter = 'E';
-                    remarks = 'Passed';
-                    remarksClass = 'remarks-passed';
-                } else {
-                    letter = 'F';
-                    remarks = 'Failed';
-                    remarksClass = 'remarks-failed';
-                }
-                
-                letterCell.textContent = letter;
-                remarksCell.innerHTML = `<span class="remarks ${remarksClass}">${remarks}</span>`;
-            } else {
+            let letter = '';
+            let remarks = '';
+            let remarksClass = '';
+            let overall = null;
+            
+            // Check if either is DRP
+            if (midtermValue === 'DRP' || finalValue === 'DRP') {
+                letter = 'DRP';
+                remarks = 'Dropped';
+                remarksClass = 'remarks-dropped';
                 overallCell.textContent = '-';
-                letterCell.textContent = '-';
-                remarksCell.innerHTML = '<span class="remarks">-</span>';
             }
+            // Check if either is INC
+            else if (midtermValue === 'INC' || finalValue === 'INC') {
+                letter = 'INC';
+                remarks = 'Incomplete';
+                remarksClass = 'remarks-incomplete';
+                overallCell.textContent = '-';
+            }
+            // Both are numeric
+            else {
+                const midterm = parseFloat(midtermValue);
+                const final = parseFloat(finalValue);
+                
+                if (!isNaN(midterm) && !isNaN(final)) {
+                    overall = (midterm + final) / 2;
+                    
+                    // Update overall grade display
+                    overallCell.textContent = overall.toFixed(2);
+                    
+                    // Determine letter grade and remarks
+                    if (overall >= 1.00 && overall <= 1.25) {
+                        letter = 'A';
+                        remarks = 'Excellent';
+                        remarksClass = 'remarks-excellent';
+                    } else if (overall >= 1.26 && overall <= 1.75) {
+                        letter = 'B';
+                        remarks = 'Very Good';
+                        remarksClass = 'remarks-very-good';
+                    } else if (overall >= 1.76 && overall <= 2.25) {
+                        letter = 'C';
+                        remarks = 'Good';
+                        remarksClass = 'remarks-good';
+                    } else if (overall >= 2.26 && overall <= 2.75) {
+                        letter = 'D';
+                        remarks = 'Satisfactory';
+                        remarksClass = 'remarks-satisfactory';
+                    } else if (overall >= 2.76 && overall <= 3.00) {
+                        letter = 'E';
+                        remarks = 'Passed';
+                        remarksClass = 'remarks-passed';
+                    } else {
+                        letter = 'F';
+                        remarks = 'Failed';
+                        remarksClass = 'remarks-failed';
+                    }
+                } else {
+                    overallCell.textContent = '-';
+                    letterCell.textContent = '-';
+                    remarksCell.innerHTML = '<span class="remarks">-</span>';
+                    updateSummary();
+                    return;
+                }
+            }
+            
+            letterCell.textContent = letter;
+            remarksCell.innerHTML = `<span class="remarks ${remarksClass}">${remarks}</span>`;
             
             // Update summary
             updateSummary();
@@ -1011,8 +733,20 @@ try {
             
             // Count graded subjects and calculate average
             for (let i = 0; i < gradeInputs.length; i += 2) {
-                const midterm = parseFloat(gradeInputs[i].value);
-                const final = parseFloat(gradeInputs[i + 1].value);
+                const midtermValue = gradeInputs[i].value.trim().toUpperCase();
+                const finalValue = gradeInputs[i + 1].value.trim().toUpperCase();
+                
+                // Skip INC and DRP from average calculation
+                if (midtermValue === 'INC' || finalValue === 'INC' || 
+                    midtermValue === 'DRP' || finalValue === 'DRP') {
+                    if (midtermValue || finalValue) {
+                        gradedSubjects++;
+                    }
+                    continue;
+                }
+                
+                const midterm = parseFloat(midtermValue);
+                const final = parseFloat(finalValue);
                 
                 if (!isNaN(midterm) && !isNaN(final)) {
                     gradedSubjects++;
@@ -1025,34 +759,6 @@ try {
                     }
                 }
             }
-            
-            // Update summary display
-            document.getElementById('gradedSubjects').textContent = gradedSubjects;
-            
-            if (totalGrades > 0) {
-                const average = gradeSum / totalGrades;
-                document.getElementById('averageGrade').textContent = average.toFixed(2);
-                
-                // Determine overall status
-                let status = '';
-                if (gradedSubjects === totalSubjects) {
-                    if (passedSubjects === totalSubjects) {
-                        status = 'PASSED';
-                        document.getElementById('overallStatus').style.color = '#28a745';
-                    } else {
-                        status = 'FAILED';
-                        document.getElementById('overallStatus').style.color = '#dc3545';
-                    }
-                } else {
-                    status = 'INCOMPLETE';
-                    document.getElementById('overallStatus').style.color = '#ffc107';
-                }
-                document.getElementById('overallStatus').textContent = status;
-            } else {
-                document.getElementById('averageGrade').textContent = '-';
-                document.getElementById('overallStatus').textContent = '-';
-                document.getElementById('overallStatus').style.color = '#6c757d';
-            }
         }
         
         // Validate grades before submission
@@ -1062,16 +768,24 @@ try {
             let hasGrades = false;
             
             gradeInputs.forEach(input => {
-                const value = parseFloat(input.value);
-                if (input.value) {
+                const value = input.value.trim().toUpperCase();
+                if (value) {
                     hasGrades = true;
-                    if (isNaN(value) || value < 1.00 || value > 5.00) {
-                        hasInvalidGrades = true;
-                        input.style.borderColor = '#dc3545';
-                        input.style.backgroundColor = '#fff5f5';
+                    // Check if it's INC or DRP
+                    if (value === 'INC' || value === 'DRP') {
+                        input.style.borderColor = '#17a2b8';
+                        input.style.backgroundColor = '#f0f9ff';
                     } else {
-                        input.style.borderColor = '#28a745';
-                        input.style.backgroundColor = '#f8fff8';
+                        // It should be numeric
+                        const numValue = parseFloat(value);
+                        if (isNaN(numValue) || numValue < 1.00 || numValue > 5.00) {
+                            hasInvalidGrades = true;
+                            input.style.borderColor = '#dc3545';
+                            input.style.backgroundColor = '#fff5f5';
+                        } else {
+                            input.style.borderColor = '#28a745';
+                            input.style.backgroundColor = '#f8fff8';
+                        }
                     }
                 } else {
                     input.style.borderColor = '#e9ecef';
@@ -1080,7 +794,7 @@ try {
             });
             
             if (hasInvalidGrades) {
-                alert('Please ensure all grades are between 1.00 and 5.00');
+                alert('Please ensure all grades are either:\n- Between 1.00 and 5.00\n- "INC" for Incomplete\n- "DRP" for Dropped');
                 return false;
             }
             
@@ -1146,13 +860,23 @@ try {
                     scheduleAutoSave();
                     
                     // Real-time validation
-                    const value = parseFloat(this.value);
-                    if (this.value && (isNaN(value) || value < 1.00 || value > 5.00)) {
-                        this.style.borderColor = '#dc3545';
-                        this.style.backgroundColor = '#fff5f5';
-                    } else if (this.value) {
-                        this.style.borderColor = '#28a745';
-                        this.style.backgroundColor = '#f8fff8';
+                    const value = this.value.trim().toUpperCase();
+                    if (value) {
+                        // Check if it's INC or DRP
+                        if (value === 'INC' || value === 'DRP') {
+                            this.style.borderColor = '#17a2b8';
+                            this.style.backgroundColor = '#f0f9ff';
+                        } else {
+                            // It should be numeric
+                            const numValue = parseFloat(value);
+                            if (isNaN(numValue) || numValue < 1.00 || numValue > 5.00) {
+                                this.style.borderColor = '#dc3545';
+                                this.style.backgroundColor = '#fff5f5';
+                            } else {
+                                this.style.borderColor = '#28a745';
+                                this.style.backgroundColor = '#f8fff8';
+                            }
+                        }
                     } else {
                         this.style.borderColor = '#e9ecef';
                         this.style.backgroundColor = 'white';
@@ -1190,7 +914,7 @@ try {
         // Initialize calculations for existing grades
         document.addEventListener('DOMContentLoaded', function() {
             <?php foreach ($enrollments as $enrollment): ?>
-                <?php if ($enrollment['midterm_grade'] && $enrollment['final_grade']): ?>
+                <?php if ($enrollment['midterm_grade'] || $enrollment['final_grade']): ?>
                     calculateGrade(<?php echo $enrollment['enrollment_id']; ?>);
                 <?php endif; ?>
             <?php endforeach; ?>

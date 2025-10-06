@@ -199,24 +199,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     break;
                     
-                case 'test_email':
-                    // Test email configuration
-                    try {
-                        $emailService = new EmailService();
-                        $testResult = $emailService->testEmail();
-                        
-                        if ($testResult) {
-                            $message = 'Email configuration test successful! Check your inbox.';
-                            $message_type = 'success';
-                        } else {
-                            $message = 'Email configuration test failed!';
-                            $message_type = 'error';
-                        }
-                    } catch (Exception $e) {
-                        $message = 'Email configuration test failed: ' . $e->getMessage();
-                        $message_type = 'error';
-                    }
-                    break;
+                //case 'test_email':
+                //    // Test email configuration
+                //    try {
+                //        $emailService = new EmailService();
+                //        $testResult = $emailService->testEmail();
+                //        
+                //        if ($testResult) {
+                //            $message = 'Email configuration test successful! Check your inbox.';
+                //            $message_type = 'success';
+                //        } else {
+                //            $message = 'Email configuration test failed!';
+                //            $message_type = 'error';
+                //        }
+                //    } catch (Exception $e) {
+                //        $message = 'Email configuration test failed: ' . $e->getMessage();
+                //        $message_type = 'error';
+                //    }
+                //    break;
                     
                 default:
                     $message = 'Invalid action specified.';
@@ -393,9 +393,9 @@ try {
                     <button class="btn btn-outline" onclick="printFacultyList()">
                         <i class="fas fa-print"></i> Print List
                     </button>
-                    <button class="btn btn-info" onclick="testEmail()">
+                    <!--<button class="btn btn-info" onclick="testEmail()">
                         <i class="fas fa-envelope-circle-check"></i> Test Email
-                    </button>
+                    </button>-->
                 </div>
 
                 <!-- Bulk Actions (hidden by default) -->

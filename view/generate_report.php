@@ -896,9 +896,9 @@ function exportToCSV($report_data, $report_type) {
                                     <button type="button" class="btn btn-success" onclick="exportReport()">
                                         <i class="fas fa-download"></i> Export CSV
                                     </button>
-                                    <button type="button" class="btn btn-outline" onclick="window.print()">
+                                    <!--<button type="button" class="btn btn-outline" onclick="window.print()">
                                         <i class="fas fa-print"></i> Print
-                                    </button>
+                                    </button>-->
                                     <?php endif; ?>
                                 </div>
                             </form>

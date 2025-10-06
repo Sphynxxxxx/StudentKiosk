@@ -1,5 +1,4 @@
 <?php
-// Enable error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -147,7 +146,6 @@ try {
     </html>
     ";
     
-    // IMPORTANT: Check if email_logs table exists
     try {
         $pdo->query("SELECT 1 FROM email_logs LIMIT 1");
     } catch (PDOException $e) {

@@ -92,7 +92,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </li>
         
-        <li class="menu-divider"></li>
+        <!--<li class="menu-divider"></li>
         
         <li>
             <a href="system_settings.php" class="<?php echo ($current_page == 'system_settings.php') ? 'active' : ''; ?>">
@@ -106,7 +106,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-history"></i>
                 <span>User Logs</span>
             </a>
-        </li>
+        </li>-->
         
         <li class="menu-divider"></li>
         
