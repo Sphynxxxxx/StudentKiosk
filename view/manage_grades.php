@@ -26,18 +26,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'update_grade':
                 $grade_id = $_POST['grade_id'];
-                $midterm_grade = !empty($_POST['midterm_grade']) ? $_POST['midterm_grade'] : null;
-                $final_grade = !empty($_POST['final_grade']) ? $_POST['final_grade'] : null;
+                $midterm_grade = !empty($_POST['midterm_grade']) ? trim(strtoupper($_POST['midterm_grade'])) : null;
+                $final_grade = !empty($_POST['final_grade']) ? trim(strtoupper($_POST['final_grade'])) : null;
                 
-                // Calculate overall grade if both midterm and final are provided
+                // Calculate overall grade, letter grade, and remarks
                 $overall_grade = null;
                 $letter_grade = null;
                 $remarks = null;
                 
-                if ($midterm_grade !== null && $final_grade !== null) {
+                // Handle INC (Incomplete)
+                if ($midterm_grade === 'INC' || $final_grade === 'INC') {
+                    $letter_grade = 'INC';
+                    $remarks = 'Incomplete';
+                    $overall_grade = null;
+                }
+                // Handle DRP (Dropped)
+                elseif ($midterm_grade === 'DRP' || $final_grade === 'DRP') {
+                    $letter_grade = 'DRP';
+                    $remarks = 'Dropped';
+                    $overall_grade = null;
+                }
+                // Calculate for numeric grades
+                elseif (is_numeric($midterm_grade) && is_numeric($final_grade)) {
                     $overall_grade = ($midterm_grade + $final_grade) / 2;
                     
-                    // Determine letter grade and remarks
                     if ($overall_grade >= 1.00 && $overall_grade <= 1.25) {
                         $letter_grade = 'A';
                         $remarks = 'Excellent';
@@ -77,14 +89,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 foreach ($_POST['grades'] as $grade_id => $grade_data) {
                     if (!empty($grade_data['midterm_grade']) || !empty($grade_data['final_grade'])) {
-                        $midterm = !empty($grade_data['midterm_grade']) ? $grade_data['midterm_grade'] : null;
-                        $final = !empty($grade_data['final_grade']) ? $grade_data['final_grade'] : null;
+                        $midterm = !empty($grade_data['midterm_grade']) ? trim(strtoupper($grade_data['midterm_grade'])) : null;
+                        $final = !empty($grade_data['final_grade']) ? trim(strtoupper($grade_data['final_grade'])) : null;
                         
                         $overall = null;
                         $letter = null;
                         $remarks = null;
                         
-                        if ($midterm !== null && $final !== null) {
+                        // Handle INC
+                        if ($midterm === 'INC' || $final === 'INC') {
+                            $letter = 'INC';
+                            $remarks = 'Incomplete';
+                        }
+                        // Handle DRP
+                        elseif ($midterm === 'DRP' || $final === 'DRP') {
+                            $letter = 'DRP';
+                            $remarks = 'Dropped';
+                        }
+                        // Calculate numeric grades
+                        elseif (is_numeric($midterm) && is_numeric($final)) {
                             $overall = ($midterm + $final) / 2;
                             
                             if ($overall >= 1.00 && $overall <= 1.25) {
@@ -561,6 +584,8 @@ try {
             min-width: 200px;
         }
         
+        .remarks-incomplete { color: #fd7e14; font-weight: 500; }
+        .remarks-dropped { color: #6c757d; font-weight: 500; }
         @media (max-width: 768px) {
             .cards-grid {
                 grid-template-columns: 1fr;
@@ -863,25 +888,19 @@ try {
                                                             </td>
                                                             
                                                             <td>
-                                                                <input type="number" 
-                                                                       name="grades[<?php echo $subject['grade_id']; ?>][midterm_grade]" 
-                                                                       value="<?php echo $subject['midterm_grade']; ?>" 
-                                                                       class="grade-input" 
-                                                                       min="1.00" 
-                                                                       max="5.00" 
-                                                                       step="0.01"
-                                                                       onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
+                                                                <input type="text" 
+                                                                    name="grades[<?php echo $subject['grade_id']; ?>][midterm_grade]" 
+                                                                    value="<?php echo htmlspecialchars($subject['midterm_grade'] ?? ''); ?>" 
+                                                                    class="grade-input" 
+                                                                    onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
                                                             </td>
-                                                            
+
                                                             <td>
-                                                                <input type="number" 
-                                                                       name="grades[<?php echo $subject['grade_id']; ?>][final_grade]" 
-                                                                       value="<?php echo $subject['final_grade']; ?>" 
-                                                                       class="grade-input" 
-                                                                       min="1.00" 
-                                                                       max="5.00" 
-                                                                       step="0.01"
-                                                                       onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
+                                                                <input type="text" 
+                                                                    name="grades[<?php echo $subject['grade_id']; ?>][final_grade]" 
+                                                                    value="<?php echo htmlspecialchars($subject['final_grade'] ?? ''); ?>" 
+                                                                    class="grade-input" 
+                                                                    onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
                                                             </td>
                                                             
                                                             <td class="overall-grade" id="overall_<?php echo $subject['grade_id']; ?>">
@@ -925,8 +944,27 @@ try {
             const letterCell = document.getElementById(`letter_${gradeId}`);
             const remarksCell = document.getElementById(`remarks_${gradeId}`);
             
-            const midterm = parseFloat(midtermInput.value);
-            const final = parseFloat(finalInput.value);
+            const midtermValue = midtermInput.value.toUpperCase().trim();
+            const finalValue = finalInput.value.toUpperCase().trim();
+            
+            // Handle INC (Incomplete)
+            if (midtermValue === 'INC' || finalValue === 'INC') {
+                overallCell.textContent = '-';
+                letterCell.textContent = 'INC';
+                remarksCell.innerHTML = '<span class="remarks-incomplete">Incomplete</span>';
+                return;
+            }
+            
+            // Handle DRP (Dropped)
+            if (midtermValue === 'DRP' || finalValue === 'DRP') {
+                overallCell.textContent = '-';
+                letterCell.textContent = 'DRP';
+                remarksCell.innerHTML = '<span class="remarks-dropped">Dropped</span>';
+                return;
+            }
+            
+            const midterm = parseFloat(midtermValue);
+            const final = parseFloat(finalValue);
             
             if (!isNaN(midterm) && !isNaN(final)) {
                 const overall = (midterm + final) / 2;
@@ -1006,8 +1044,17 @@ try {
             let hasInvalidGrades = false;
             
             gradeInputs.forEach(input => {
-                const value = parseFloat(input.value);
-                if (input.value && (isNaN(value) || value < 1.00 || value > 5.00)) {
+                const value = input.value.toUpperCase().trim();
+                
+                // Check if it's INC or DRP
+                if (value === 'INC' || value === 'DRP' || value === '') {
+                    input.style.borderColor = '#d1d5db';
+                    return;
+                }
+                
+                // Check if it's a valid numeric grade
+                const numValue = parseFloat(value);
+                if (isNaN(numValue) || numValue < 1.00 || numValue > 5.00) {
                     hasInvalidGrades = true;
                     input.style.borderColor = '#dc3545';
                 } else {
@@ -1017,7 +1064,7 @@ try {
             
             if (hasInvalidGrades) {
                 e.preventDefault();
-                alert('Please ensure all grades are between 1.00 and 5.00');
+                alert('Please ensure all grades are between 1.00 and 5.00, or enter INC/DRP');
                 return false;
             }
         });

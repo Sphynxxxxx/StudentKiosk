@@ -508,7 +508,7 @@ try {
         }
         
         .btn-primary {
-            background-color: #007bff;
+            background-color: #1e3a8a;
             color: white;
         }
         
@@ -619,9 +619,9 @@ try {
                     <button class="btn btn-primary" onclick="openAddModal()">
                         <i class="fas fa-plus"></i> Add New Student
                     </button>
-                    <button class="btn btn-info" onclick="testEmail()">
+                    <!--<button class="btn btn-info" onclick="testEmail()">
                         <i class="fas fa-envelope-circle-check"></i> Test Email
-                    </button>
+                    </button>-->
                 </div>
 
                 <!-- Students Table -->

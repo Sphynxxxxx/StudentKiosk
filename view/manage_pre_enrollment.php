@@ -731,9 +731,9 @@ try {
                     <button class="btn btn-outline" onclick="clearSelection()" id="clearSelectionBtn">
                         <i class="fas fa-times"></i> Clear Selection
                     </button>
-                    <button class="btn btn-info" onclick="refreshPage()">
+                    <!--<button class="btn btn-info" onclick="refreshPage()">
                         <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
+                    </button>-->
                 </div>
 
                 <!-- Bulk Actions -->

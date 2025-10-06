@@ -584,7 +584,7 @@ body {
 }
 
 .btn-success {
-    background: var(--success);
+    background: var(--primary-blue);
     color: var(--white);
 }
 
