@@ -156,7 +156,7 @@ $current_info = $page_info[$current_page] ?? [
                     <i class="fas fa-cog"></i> Settings
                 </a>
                 <div class="dropdown-divider"></div>
-                <a href="logout.php" class="logout-link">
+                <a href="../auth/logout.php" class="logout-link">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
             </div>

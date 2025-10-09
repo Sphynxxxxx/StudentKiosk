@@ -11,7 +11,7 @@ return [
     
     // Email credentials
     'smtp_username' => 'larrydenverbiaco@gmail.com', // Your Gmail address
-    'smtp_password' => 'sjqx kaqk ctsd yeyn', // Your Gmail App Password (not regular password)
+    'smtp_password' => 'artm nvdc zins klas', // Your Gmail App Password (not regular password)
     
     // Sender information
     'from_email' => 'enrollment@isatu.edu.ph',

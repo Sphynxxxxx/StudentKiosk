@@ -1410,7 +1410,7 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
             formData.append('message', message);
             
             // Send email via AJAX
-            fetch('send_student_email.php', {
+            fetch('../api/send_student_email.php', {
                 method: 'POST',
                 body: formData
             })
