@@ -378,7 +378,7 @@ try {
                             </div>
                         </div>
                         <div class="stat-value"><?php echo $stats['departments_with_faculty']; ?></div>
-                        <div class="stat-label">Active Departments</div>
+                        <div class="stat-label">Active Colleges</div>
                     </div>
                 </div>
 
@@ -422,13 +422,13 @@ try {
                     <!-- Search and Filter Section -->
                     <div class="search-container">
                         <div class="search-box">
-                            <input type="text" id="searchInput" placeholder="Search faculty by name, email, department..." onkeyup="searchFaculty()">
+                            <input type="text" id="searchInput" placeholder="Search faculty by name, email, colleges..." onkeyup="searchFaculty()">
                             <i class="fas fa-search"></i>
                         </div>
                         
                         <div class="search-filters">
                             <select class="filter-select" id="departmentFilter" onchange="filterFaculty()">
-                                <option value="">All Departments</option>
+                                <option value="">All Colleges</option>
                                 <?php foreach ($departments as $dept): ?>
                                     <option value="<?php echo htmlspecialchars($dept['name']); ?>">
                                         <?php echo htmlspecialchars($dept['name']); ?>
@@ -477,7 +477,7 @@ try {
                                     <th>Employee ID</th>
                                     <th>Name</th>
                                     <th>Email</th>
-                                    <th>Department</th>
+                                    <th>College</th>
                                     <th>Position</th>
                                     <th>Employment Type</th>
                                     <th>Status</th>
@@ -591,9 +591,9 @@ try {
                     </div>
                     
                     <div class="form-group">
-                        <label for="department_id">Department</label>
+                        <label for="department_id">College</label>
                         <select id="department_id" name="department_id">
-                            <option value="">Select Department</option>
+                            <option value="">Select College</option>
                             <?php foreach ($departments as $dept): ?>
                                 <option value="<?php echo $dept['id']; ?>">
                                     <?php echo htmlspecialchars($dept['name']); ?>
@@ -705,9 +705,9 @@ try {
                     </div>
                     
                     <div class="form-group">
-                        <label for="edit_department_id">Department</label>
+                        <label for="edit_department_id">College</label>
                         <select id="edit_department_id" name="department_id">
-                            <option value="">Select Department</option>
+                            <option value="">Select College</option>
                             <?php foreach ($departments as $dept): ?>
                                 <option value="<?php echo $dept['id']; ?>">
                                     <?php echo htmlspecialchars($dept['name']); ?>
