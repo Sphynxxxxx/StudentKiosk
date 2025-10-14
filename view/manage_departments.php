@@ -331,10 +331,10 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <i class="fas fa-building"></i> Manage Colleges
                     </button>
                     <button class="tab-button" onclick="openTab(event, 'add-program')">
-                        <i class="fas fa-graduation-cap"></i> Add Program
+                        <i class="fas fa-graduation-cap"></i> Add Course
                     </button>
                     <button class="tab-button" onclick="openTab(event, 'manage-programs')">
-                        <i class="fas fa-list"></i> Manage Programs
+                        <i class="fas fa-list"></i> Manage Courses
                     </button>
                     <button class="tab-button" onclick="openTab(event, 'add-section')">
                         <i class="fas fa-users"></i> Add Section
@@ -349,7 +349,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-plus-circle"></i> Add New Department
+                                <i class="fas fa-plus-circle"></i> Add New College
                             </h3>
                         </div>
                         <form method="POST" action="">
@@ -357,21 +357,21 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="name">Department Name *</label>
+                                    <label for="name">College Name *</label>
                                     <input type="text" id="name" name="name" required>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="code">Department Code *</label>
+                                    <label for="code">College Code *</label>
                                     <input type="text" id="code" name="code" maxlength="10" required>
                                 </div>
                             </div>
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="head_faculty_id">Department Head</label>
+                                    <label for="head_faculty_id">College Dean</label>
                                     <select id="head_faculty_id" name="head_faculty_id">
-                                        <option value="">Select Department Head (Optional)</option>
+                                        <option value="">Select College Dean (Optional)</option>
                                         <?php foreach ($faculty_members as $faculty): ?>
                                         <option value="<?php echo $faculty['id']; ?>">
                                             <?php echo htmlspecialchars($faculty['first_name'] . ' ' . $faculty['last_name'] . ' (' . $faculty['employee_id'] . ')'); ?>
@@ -389,7 +389,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
 
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Department
+                                <i class="fas fa-plus"></i> Add College
                             </button>
                         </form>
                     </div>
@@ -400,12 +400,12 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-building"></i> All Departments
+                                <i class="fas fa-building"></i> All Colleges
                             </h3>
                         </div>
                         
                         <div class="search-bar">
-                            <input type="text" id="departmentSearch" placeholder="Search departments..." onkeyup="filterTable('departmentSearch', 'departmentsTable')">
+                            <input type="text" id="departmentSearch" placeholder="Search College..." onkeyup="filterTable('departmentSearch', 'departmentsTable')">
                         </div>
                         
                         <div class="table-container">
@@ -413,8 +413,8 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <thead>
                                     <tr>
                                         <th>Code</th>
-                                        <th>Department Name</th>
-                                        <th>Department Head</th>
+                                        <th>College Name</th>
+                                        <th>College Head</th>
                                         <th>Description</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -441,7 +441,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     <input type="hidden" name="action" value="delete_department">
                                                     <input type="hidden" name="department_id" value="<?php echo $department['id']; ?>">
                                                     <button type="submit" class="btn btn-danger btn-sm" 
-                                                            onclick="return confirm('Are you sure you want to DELETE this department? This action cannot be undone.\n\nDepartment: <?php echo htmlspecialchars($department['name']); ?>')">
+                                                            onclick="return confirm('Are you sure you want to DELETE this college? This action cannot be undone.\n\nCollege: <?php echo htmlspecialchars($department['name']); ?>')">
                                                         <i class="fas fa-trash"></i> Delete
                                                     </button>
                                                 </form>
@@ -460,7 +460,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-graduation-cap"></i> Add New Program
+                                <i class="fas fa-graduation-cap"></i> Add New Course
                             </h3>
                         </div>
                         <form method="POST" action="">
@@ -468,14 +468,14 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="program_code">Program Code *</label>
+                                    <label for="program_code">Course Code *</label>
                                     <input type="text" id="program_code" name="program_code" maxlength="20" required>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="program_department_id">Department *</label>
+                                    <label for="program_department_id">College *</label>
                                     <select id="program_department_id" name="department_id" required>
-                                        <option value="">Select Department</option>
+                                        <option value="">Select College</option>
                                         <?php foreach ($departments as $dept): ?>
                                         <option value="<?php echo $dept['id']; ?>">
                                             <?php echo htmlspecialchars($dept['name']); ?>
@@ -487,7 +487,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="program_name">Program Name *</label>
+                                    <label for="program_name">Course Name *</label>
                                     <input type="text" id="program_name" name="program_name" required>
                                 </div>
                                 
@@ -517,7 +517,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
 
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Program
+                                <i class="fas fa-plus"></i> Add Course
                             </button>
                         </form>
                     </div>
@@ -528,21 +528,21 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="dashboard-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-list"></i> All Programs
+                                <i class="fas fa-list"></i> All Courses
                             </h3>
                         </div>
                         
                         <div class="search-bar">
-                            <input type="text" id="programSearch" placeholder="Search programs..." onkeyup="filterTable('programSearch', 'programsTable')">
+                            <input type="text" id="programSearch" placeholder="Search Courses..." onkeyup="filterTable('programSearch', 'programsTable')">
                         </div>
                         
                         <div class="table-container">
                             <table class="table" id="programsTable">
                                 <thead>
                                     <tr>
-                                        <th>Program Code</th>
-                                        <th>Program Name</th>
-                                        <th>Department</th>
+                                        <th>Course Code</th>
+                                        <th>Course Name</th>
+                                        <th>College</th>
                                         <th>Degree Type</th>
                                         <th>Duration</th>
                                         <th>Status</th>
@@ -571,7 +571,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     <input type="hidden" name="action" value="delete_program">
                                                     <input type="hidden" name="program_id" value="<?php echo $program['id']; ?>">
                                                     <button type="submit" class="btn btn-danger btn-sm" 
-                                                            onclick="return confirm('Are you sure you want to DELETE this program? This action cannot be undone.\n\nProgram: <?php echo htmlspecialchars($program['program_code'] . ' - ' . $program['program_name']); ?>')">
+                                                            onclick="return confirm('Are you sure you want to DELETE this Course? This action cannot be undone.\n\nCourse: <?php echo htmlspecialchars($program['program_code'] . ' - ' . $program['program_name']); ?>')">
                                                         <i class="fas fa-trash"></i> Delete
                                                     </button>
                                                 </form>
@@ -598,7 +598,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="section_program_id">Program *</label>
+                                    <label for="section_program_id">Course *</label>
                                     <select id="section_program_id" name="program_id" required onchange="loadYearLevels()">
                                         <option value="">Select Program</option>
                                         <?php foreach ($programs as $program): ?>
@@ -614,7 +614,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="form-group">
                                     <label for="year_level">Year Level *</label>
                                     <select id="year_level" name="year_level" required>
-                                        <option value="">Select Program First</option>
+                                        <option value="">Select Course First</option>
                                     </select>
                                 </div>
                             </div>
@@ -681,7 +681,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <table class="table" id="sectionsTable">
                                 <thead>
                                     <tr>
-                                        <th>Program</th>
+                                        <th>Course</th>
                                         <th>Year Level</th>
                                         <th>Section</th>
                                         <th>Academic Year</th>
@@ -741,7 +741,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <div id="editDepartmentModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Edit Department</h2>
+                <h2>Edit College</h2>
                 <span class="close" onclick="closeModal('editDepartmentModal')">&times;</span>
             </div>
             <form method="POST" action="">
@@ -750,21 +750,21 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_dept_name">Department Name *</label>
+                        <label for="edit_dept_name">College Name *</label>
                         <input type="text" id="edit_dept_name" name="name" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="edit_dept_code">Department Code *</label>
+                        <label for="edit_dept_code">College Code *</label>
                         <input type="text" id="edit_dept_code" name="code" maxlength="10" required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_dept_head_faculty_id">Department Head</label>
+                        <label for="edit_dept_head_faculty_id">College Dean</label>
                         <select id="edit_dept_head_faculty_id" name="head_faculty_id">
-                            <option value="">Select Department Head (Optional)</option>
+                            <option value="">Select College Dean (Optional)</option>
                             <?php foreach ($faculty_members as $faculty): ?>
                             <option value="<?php echo $faculty['id']; ?>">
                                 <?php echo htmlspecialchars($faculty['first_name'] . ' ' . $faculty['last_name'] . ' (' . $faculty['employee_id'] . ')'); ?>
@@ -784,7 +784,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div style="text-align: right; margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('editDepartmentModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Update Department
+                        <i class="fas fa-save"></i> Update College
                     </button>
                 </div>
             </form>
@@ -795,7 +795,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <div id="editProgramModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Edit Program</h2>
+                <h2>Edit Course</h2>
                 <span class="close" onclick="closeModal('editProgramModal')">&times;</span>
             </div>
             <form method="POST" action="">
@@ -804,14 +804,14 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_program_code">Program Code *</label>
+                        <label for="edit_program_code">Course Code *</label>
                         <input type="text" id="edit_program_code" name="program_code" maxlength="20" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="edit_program_department_id">Department *</label>
+                        <label for="edit_program_department_id">College *</label>
                         <select id="edit_program_department_id" name="department_id" required>
-                            <option value="">Select Department</option>
+                            <option value="">Select College</option>
                             <?php foreach ($departments as $dept): ?>
                             <option value="<?php echo $dept['id']; ?>">
                                 <?php echo htmlspecialchars($dept['name']); ?>
@@ -823,7 +823,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_program_name">Program Name *</label>
+                        <label for="edit_program_name">Course Name *</label>
                         <input type="text" id="edit_program_name" name="program_name" required>
                     </div>
                     
@@ -855,7 +855,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div style="text-align: right; margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('editProgramModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Update Program
+                        <i class="fas fa-save"></i> Update Course
                     </button>
                 </div>
             </form>
@@ -875,9 +875,9 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="edit_section_program_id">Program *</label>
+                        <label for="edit_section_program_id">Course *</label>
                         <select id="edit_section_program_id" name="program_id" required onchange="loadEditYearLevels()">
-                            <option value="">Select Program</option>
+                            <option value="">Select Course</option>
                             <?php foreach ($programs as $program): ?>
                                 <?php if ($program['status'] === 'active'): ?>
                                 <option value="<?php echo $program['id']; ?>" data-duration="<?php echo $program['duration_years']; ?>">
@@ -891,7 +891,7 @@ $academic_years = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="form-group">
                         <label for="edit_year_level">Year Level *</label>
                         <select id="edit_year_level" name="year_level" required>
-                            <option value="">Select Program First</option>
+                            <option value="">Select Course First</option>
                         </select>
                     </div>
                 </div>

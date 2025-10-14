@@ -767,7 +767,6 @@ try {
         </div>
     </div>
 
-    <!-- Include Scripts -->
     <script>
         // Pass PHP data to JavaScript
         const allFacultyData = <?php echo json_encode($faculty_members); ?>;
@@ -809,8 +808,11 @@ try {
                 form.submit();
             }
         }
+
+    
+        
     </script>
-    <script src="../assets/js/manage_faculty.js"></script>
+    <script src="../assets/js/manage_faculty.js"></script> 
 </body>
 </html>
                 
