@@ -26,8 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'update_grade':
                 $grade_id = $_POST['grade_id'];
-                $midterm_grade = !empty($_POST['midterm_grade']) ? trim(strtoupper($_POST['midterm_grade'])) : null;
                 $final_grade = !empty($_POST['final_grade']) ? trim(strtoupper($_POST['final_grade'])) : null;
+                $completion_grade = !empty($_POST['completion_grade']) ? trim($_POST['completion_grade']) : null;
                 
                 // Calculate overall grade, letter grade, and remarks
                 $overall_grade = null;
@@ -35,36 +35,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $remarks = null;
                 
                 // Handle INC (Incomplete)
-                if ($midterm_grade === 'INC' || $final_grade === 'INC') {
+                if ($final_grade === 'INC') {
                     $letter_grade = 'INC';
                     $remarks = 'Incomplete';
                     $overall_grade = null;
+                    
+                    // If completion grade is provided, use it for overall
+                    if ($completion_grade && is_numeric($completion_grade)) {
+                        $completion_num = (float)$completion_grade;
+                        if ($completion_num >= 1.00 && $completion_num <= 5.00) {
+                            $overall_grade = $completion_num;
+                            
+                            // Calculate remarks based on completion grade - UPDATED SCALE
+                            if ($overall_grade >= 1.00 && $overall_grade <= 1.50) {
+                                $letter_grade = 'A';
+                                $remarks = 'Excellent';
+                            } elseif ($overall_grade >= 1.60 && $overall_grade <= 2.00) {
+                                $letter_grade = 'B';
+                                $remarks = 'Very Satisfactory';
+                            } elseif ($overall_grade >= 2.10 && $overall_grade <= 2.50) {
+                                $letter_grade = 'C';
+                                $remarks = 'Satisfactory';
+                            } elseif ($overall_grade >= 2.60 && $overall_grade <= 3.00) {
+                                $letter_grade = 'D';
+                                $remarks = 'Fair';
+                            } else {
+                                $letter_grade = 'F';
+                                $remarks = 'Failed';
+                            }
+                        }
+                    }
                 }
                 // Handle DRP (Dropped)
-                elseif ($midterm_grade === 'DRP' || $final_grade === 'DRP') {
+                elseif ($final_grade === 'DRP') {
                     $letter_grade = 'DRP';
                     $remarks = 'Dropped';
                     $overall_grade = null;
                 }
-                // Calculate for numeric grades
-                elseif (is_numeric($midterm_grade) && is_numeric($final_grade)) {
-                    $overall_grade = ($midterm_grade + $final_grade) / 2;
+                // Calculate for numeric grades - UPDATED SCALE
+                elseif (is_numeric($final_grade)) {
+                    $overall_grade = (float)$final_grade;
                     
-                    if ($overall_grade >= 1.00 && $overall_grade <= 1.25) {
+                    if ($overall_grade >= 1.00 && $overall_grade <= 1.50) {
                         $letter_grade = 'A';
                         $remarks = 'Excellent';
-                    } elseif ($overall_grade >= 1.26 && $overall_grade <= 1.75) {
+                    } elseif ($overall_grade >= 1.60 && $overall_grade <= 2.00) {
                         $letter_grade = 'B';
-                        $remarks = 'Very Good';
-                    } elseif ($overall_grade >= 1.76 && $overall_grade <= 2.25) {
+                        $remarks = 'Very Satisfactory';
+                    } elseif ($overall_grade >= 2.10 && $overall_grade <= 2.50) {
                         $letter_grade = 'C';
-                        $remarks = 'Good';
-                    } elseif ($overall_grade >= 2.26 && $overall_grade <= 2.75) {
-                        $letter_grade = 'D';
                         $remarks = 'Satisfactory';
-                    } elseif ($overall_grade >= 2.76 && $overall_grade <= 3.00) {
-                        $letter_grade = 'E';
-                        $remarks = 'Passed';
+                    } elseif ($overall_grade >= 2.60 && $overall_grade <= 3.00) {
+                        $letter_grade = 'D';
+                        $remarks = 'Fair';
                     } else {
                         $letter_grade = 'F';
                         $remarks = 'Failed';
@@ -73,11 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 $stmt = $pdo->prepare("
                     UPDATE grades 
-                    SET midterm_grade = ?, final_grade = ?, overall_grade = ?, 
+                    SET final_grade = ?, completion_grade = ?, overall_grade = ?, 
                         letter_grade = ?, remarks = ?, updated_at = NOW()
                     WHERE id = ?
                 ");
-                $stmt->execute([$midterm_grade, $final_grade, $overall_grade, $letter_grade, $remarks, $grade_id]);
+                $stmt->execute([$final_grade, $completion_grade, $overall_grade, $letter_grade, $remarks, $grade_id]);
                 
                 $message = 'Grade updated successfully!';
                 $message_type = 'success';
@@ -88,38 +111,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo->beginTransaction();
                 
                 foreach ($_POST['grades'] as $grade_id => $grade_data) {
-                    if (!empty($grade_data['midterm_grade']) || !empty($grade_data['final_grade'])) {
-                        $midterm = !empty($grade_data['midterm_grade']) ? trim(strtoupper($grade_data['midterm_grade'])) : null;
-                        $final = !empty($grade_data['final_grade']) ? trim(strtoupper($grade_data['final_grade'])) : null;
+                    if (!empty($grade_data['final_grade'])) {
+                        $final = trim(strtoupper($grade_data['final_grade']));
+                        $completion = !empty($grade_data['completion_grade']) ? trim($grade_data['completion_grade']) : null;
                         
                         $overall = null;
                         $letter = null;
                         $remarks = null;
                         
                         // Handle INC
-                        if ($midterm === 'INC' || $final === 'INC') {
+                        if ($final === 'INC') {
                             $letter = 'INC';
                             $remarks = 'Incomplete';
+                            
+                            // If completion grade is provided, use it - UPDATED SCALE
+                            if ($completion && is_numeric($completion)) {
+                                $completion_num = (float)$completion;
+                                if ($completion_num >= 1.00 && $completion_num <= 5.00) {
+                                    $overall = $completion_num;
+                                    
+                                    if ($overall >= 1.00 && $overall <= 1.50) {
+                                        $letter = 'A'; $remarks = 'Excellent';
+                                    } elseif ($overall >= 1.60 && $overall <= 2.00) {
+                                        $letter = 'B'; $remarks = 'Very Satisfactory';
+                                    } elseif ($overall >= 2.10 && $overall <= 2.50) {
+                                        $letter = 'C'; $remarks = 'Satisfactory';
+                                    } elseif ($overall >= 2.60 && $overall <= 3.00) {
+                                        $letter = 'D'; $remarks = 'Fair';
+                                    } else {
+                                        $letter = 'F'; $remarks = 'Failed';
+                                    }
+                                }
+                            }
                         }
                         // Handle DRP
-                        elseif ($midterm === 'DRP' || $final === 'DRP') {
+                        elseif ($final === 'DRP') {
                             $letter = 'DRP';
                             $remarks = 'Dropped';
                         }
-                        // Calculate numeric grades
-                        elseif (is_numeric($midterm) && is_numeric($final)) {
-                            $overall = ($midterm + $final) / 2;
+                        // Calculate numeric grades - UPDATED SCALE
+                        elseif (is_numeric($final)) {
+                            $overall = (float)$final;
                             
-                            if ($overall >= 1.00 && $overall <= 1.25) {
+                            if ($overall >= 1.00 && $overall <= 1.50) {
                                 $letter = 'A'; $remarks = 'Excellent';
-                            } elseif ($overall >= 1.26 && $overall <= 1.75) {
-                                $letter = 'B'; $remarks = 'Very Good';
-                            } elseif ($overall >= 1.76 && $overall <= 2.25) {
-                                $letter = 'C'; $remarks = 'Good';
-                            } elseif ($overall >= 2.26 && $overall <= 2.75) {
-                                $letter = 'D'; $remarks = 'Satisfactory';
-                            } elseif ($overall >= 2.76 && $overall <= 3.00) {
-                                $letter = 'E'; $remarks = 'Passed';
+                            } elseif ($overall >= 1.60 && $overall <= 2.00) {
+                                $letter = 'B'; $remarks = 'Very Satisfactory';
+                            } elseif ($overall >= 2.10 && $overall <= 2.50) {
+                                $letter = 'C'; $remarks = 'Satisfactory';
+                            } elseif ($overall >= 2.60 && $overall <= 3.00) {
+                                $letter = 'D'; $remarks = 'Fair';
                             } else {
                                 $letter = 'F'; $remarks = 'Failed';
                             }
@@ -127,11 +168,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         
                         $stmt = $pdo->prepare("
                             UPDATE grades 
-                            SET midterm_grade = ?, final_grade = ?, overall_grade = ?, 
+                            SET final_grade = ?, completion_grade = ?, overall_grade = ?, 
                                 letter_grade = ?, remarks = ?, updated_at = NOW()
                             WHERE id = ?
                         ");
-                        $stmt->execute([$midterm, $final, $overall, $letter, $remarks, $grade_id]);
+                        $stmt->execute([$final, $completion, $overall, $letter, $remarks, $grade_id]);
                         $updated_count++;
                     }
                 }
@@ -272,8 +313,8 @@ try {
                 cs.section_name as class_section_name,
                 e.id as enrollment_id,
                 g.id as grade_id,
-                g.midterm_grade,
                 g.final_grade,
+                g.completion_grade,
                 g.overall_grade,
                 g.letter_grade,
                 g.remarks,
@@ -337,8 +378,8 @@ try {
                 'class_section_name' => $row['class_section_name'],
                 'faculty_name' => $row['faculty_first_name'] . ' ' . $row['faculty_last_name'],
                 'grade_id' => $row['grade_id'],
-                'midterm_grade' => $row['midterm_grade'],
                 'final_grade' => $row['final_grade'],
+                'completion_grade' => $row['completion_grade'],
                 'overall_grade' => $row['overall_grade'],
                 'letter_grade' => $row['letter_grade'],
                 'remarks' => $row['remarks'],
@@ -486,6 +527,29 @@ try {
             box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
         }
         
+        .completion-input {
+            width: 80px;
+            padding: 6px 8px;
+            border: 2px solid #ffc107;
+            border-radius: 4px;
+            text-align: center;
+            background-color: #fff9e6;
+        }
+        
+        .completion-input:focus {
+            outline: none;
+            border-color: #ff9800;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.25);
+        }
+        
+        .completion-input:disabled {
+            background-color: #f8f9fa;
+            border-color: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
         .student-header {
             background: #e3f2fd;
             font-weight: bold;
@@ -500,11 +564,12 @@ try {
         }
         
         .remarks-excellent { color: #28a745; }
-        .remarks-very-good { color: #20c997; }
-        .remarks-good { color: #17a2b8; }
-        .remarks-satisfactory { color: #ffc107; }
-        .remarks-passed { color: #fd7e14; }
+        .remarks-very-satisfactory { color: #20c997; }
+        .remarks-satisfactory { color: #17a2b8; }
+        .remarks-fair { color: #ffc107; }
         .remarks-failed { color: #dc3545; }
+        .remarks-incomplete { color: #fd7e14; font-weight: 500; }
+        .remarks-dropped { color: #6c757d; font-weight: 500; }
         
         .bulk-actions {
             background: #f8f9fa;
@@ -584,8 +649,6 @@ try {
             min-width: 200px;
         }
         
-        .remarks-incomplete { color: #fd7e14; font-weight: 500; }
-        .remarks-dropped { color: #6c757d; font-weight: 500; }
         @media (max-width: 768px) {
             .cards-grid {
                 grid-template-columns: 1fr;
@@ -595,7 +658,7 @@ try {
                 font-size: 0.9em;
             }
             
-            .grade-input {
+            .grade-input, .completion-input {
                 width: 60px;
                 padding: 4px 6px;
             }
@@ -840,10 +903,9 @@ try {
                                                     <th>Subject</th>
                                                     <th>Faculty</th>
                                                     <th>Credits</th>
-                                                    <th>Midterm</th>
-                                                    <th>Final</th>
+                                                    <th>Final Grade</th>
+                                                    <th>Completion Grade</th>
                                                     <th>Overall</th>
-                                                    <th>Letter Grade</th>
                                                     <th>Remarks</th>
                                                     <th>Last Updated</th>
                                                 </tr>
@@ -889,26 +951,26 @@ try {
                                                             
                                                             <td>
                                                                 <input type="text" 
-                                                                    name="grades[<?php echo $subject['grade_id']; ?>][midterm_grade]" 
-                                                                    value="<?php echo htmlspecialchars($subject['midterm_grade'] ?? ''); ?>" 
+                                                                    name="grades[<?php echo $subject['grade_id']; ?>][final_grade]" 
+                                                                    value="<?php echo htmlspecialchars($subject['final_grade'] ?? ''); ?>" 
                                                                     class="grade-input" 
-                                                                    onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
+                                                                    data-grade-id="<?php echo $subject['grade_id']; ?>"
+                                                                    onchange="handleFinalGradeChange(<?php echo $subject['grade_id']; ?>)">
                                                             </td>
 
                                                             <td>
                                                                 <input type="text" 
-                                                                    name="grades[<?php echo $subject['grade_id']; ?>][final_grade]" 
-                                                                    value="<?php echo htmlspecialchars($subject['final_grade'] ?? ''); ?>" 
-                                                                    class="grade-input" 
+                                                                    name="grades[<?php echo $subject['grade_id']; ?>][completion_grade]" 
+                                                                    value="<?php echo htmlspecialchars($subject['completion_grade'] ?? ''); ?>" 
+                                                                    class="completion-input" 
+                                                                    id="completion_<?php echo $subject['grade_id']; ?>"
+                                                                    placeholder="1.00-5.00"
+                                                                    <?php echo (strtoupper($subject['final_grade'] ?? '') !== 'INC') ? 'disabled' : ''; ?>
                                                                     onchange="calculateOverall(<?php echo $subject['grade_id']; ?>)">
                                                             </td>
                                                             
                                                             <td class="overall-grade" id="overall_<?php echo $subject['grade_id']; ?>">
-                                                                <?php echo $subject['overall_grade'] ? number_format($subject['overall_grade'], 2) : '-'; ?>
-                                                            </td>
-                                                            
-                                                            <td class="letter-grade" id="letter_<?php echo $subject['grade_id']; ?>">
-                                                                <?php echo htmlspecialchars($subject['letter_grade'] ?? '-'); ?>
+                                                                <?php echo $subject['overall_grade'] ? number_format($subject['overall_grade'], 4) : '-'; ?>
                                                             </td>
                                                             
                                                             <td class="remarks-cell" id="remarks_<?php echo $subject['grade_id']; ?>">
@@ -936,78 +998,113 @@ try {
     </div>
 
     <script>
-        // Calculate overall grade and update display
-        function calculateOverall(gradeId) {
-            const midtermInput = document.querySelector(`input[name="grades[${gradeId}][midterm_grade]"]`);
+        // Handle final grade change to enable/disable completion grade input
+        function handleFinalGradeChange(gradeId) {
             const finalInput = document.querySelector(`input[name="grades[${gradeId}][final_grade]"]`);
+            const completionInput = document.getElementById(`completion_${gradeId}`);
+            const finalValue = finalInput.value.trim().toUpperCase();
+            
+            // Enable completion input only if final grade is INC
+            if (finalValue === 'INC') {
+                completionInput.disabled = false;
+                completionInput.focus();
+            } else {
+                completionInput.disabled = true;
+                completionInput.value = '';
+            }
+            
+            // Calculate overall grade
+            calculateOverall(gradeId);
+        }
+
+        // Calculate overall grade and update display - UPDATED SCALE
+        function calculateOverall(gradeId) {
+            const finalInput = document.querySelector(`input[name="grades[${gradeId}][final_grade]"]`);
+            const completionInput = document.getElementById(`completion_${gradeId}`);
             const overallCell = document.getElementById(`overall_${gradeId}`);
-            const letterCell = document.getElementById(`letter_${gradeId}`);
             const remarksCell = document.getElementById(`remarks_${gradeId}`);
             
-            const midtermValue = midtermInput.value.toUpperCase().trim();
             const finalValue = finalInput.value.toUpperCase().trim();
+            const completionValue = completionInput.value.trim();
             
             // Handle INC (Incomplete)
-            if (midtermValue === 'INC' || finalValue === 'INC') {
-                overallCell.textContent = '-';
-                letterCell.textContent = 'INC';
-                remarksCell.innerHTML = '<span class="remarks-incomplete">Incomplete</span>';
+            if (finalValue === 'INC') {
+                // If completion grade is provided, use it
+                if (completionValue) {
+                    const completion = parseFloat(completionValue);
+                    if (!isNaN(completion) && completion >= 1.00 && completion <= 5.00) {
+                        const overall = completion;
+                        overallCell.textContent = overall.toFixed(4);
+                        
+                        // Determine remarks based on completion grade - UPDATED SCALE
+                        let remarks = '';
+                        let remarksClass = '';
+                        
+                        if (overall >= 1.00 && overall <= 1.50) {
+                            remarks = 'Excellent'; remarksClass = 'remarks-excellent';
+                        } else if (overall >= 1.60 && overall <= 2.00) {
+                            remarks = 'Very Satisfactory'; remarksClass = 'remarks-very-satisfactory';
+                        } else if (overall >= 2.10 && overall <= 2.50) {
+                            remarks = 'Satisfactory'; remarksClass = 'remarks-satisfactory';
+                        } else if (overall >= 2.60 && overall <= 3.00) {
+                            remarks = 'Fair'; remarksClass = 'remarks-fair';
+                        } else {
+                            remarks = 'Failed'; remarksClass = 'remarks-failed';
+                        }
+                        
+                        remarksCell.innerHTML = `<span class="${remarksClass}">${remarks}</span>`;
+                    } else {
+                        // Invalid completion grade
+                        overallCell.textContent = '-';
+                        remarksCell.innerHTML = '<span class="remarks-incomplete">Incomplete</span>';
+                    }
+                } else {
+                    // No completion grade yet
+                    overallCell.textContent = '-';
+                    remarksCell.innerHTML = '<span class="remarks-incomplete">Incomplete</span>';
+                }
                 return;
             }
             
             // Handle DRP (Dropped)
-            if (midtermValue === 'DRP' || finalValue === 'DRP') {
+            if (finalValue === 'DRP') {
                 overallCell.textContent = '-';
-                letterCell.textContent = 'DRP';
                 remarksCell.innerHTML = '<span class="remarks-dropped">Dropped</span>';
                 return;
             }
             
-            const midterm = parseFloat(midtermValue);
             const final = parseFloat(finalValue);
             
-            if (!isNaN(midterm) && !isNaN(final)) {
-                const overall = (midterm + final) / 2;
+            if (!isNaN(final)) {
+                const overall = final;
                 
                 // Update overall grade display
-                overallCell.textContent = overall.toFixed(2);
+                overallCell.textContent = overall.toFixed(4);
                 
-                // Determine letter grade and remarks
-                let letter = '';
+                // Determine remarks - UPDATED SCALE
                 let remarks = '';
                 let remarksClass = '';
                 
-                if (overall >= 1.00 && overall <= 1.25) {
-                    letter = 'A';
+                if (overall >= 1.00 && overall <= 1.50) {
                     remarks = 'Excellent';
                     remarksClass = 'remarks-excellent';
-                } else if (overall >= 1.26 && overall <= 1.75) {
-                    letter = 'B';
-                    remarks = 'Very Good';
-                    remarksClass = 'remarks-very-good';
-                } else if (overall >= 1.76 && overall <= 2.25) {
-                    letter = 'C';
-                    remarks = 'Good';
-                    remarksClass = 'remarks-good';
-                } else if (overall >= 2.26 && overall <= 2.75) {
-                    letter = 'D';
+                } else if (overall >= 1.60 && overall <= 2.00) {
+                    remarks = 'Very Satisfactory';
+                    remarksClass = 'remarks-very-satisfactory';
+                } else if (overall >= 2.10 && overall <= 2.50) {
                     remarks = 'Satisfactory';
                     remarksClass = 'remarks-satisfactory';
-                } else if (overall >= 2.76 && overall <= 3.00) {
-                    letter = 'E';
-                    remarks = 'Passed';
-                    remarksClass = 'remarks-passed';
+                } else if (overall >= 2.60 && overall <= 3.00) {
+                    remarks = 'Fair';
+                    remarksClass = 'remarks-fair';
                 } else {
-                    letter = 'F';
                     remarks = 'Failed';
                     remarksClass = 'remarks-failed';
                 }
                 
-                letterCell.textContent = letter;
                 remarksCell.innerHTML = `<span class="${remarksClass}">${remarks}</span>`;
             } else {
                 overallCell.textContent = '-';
-                letterCell.textContent = '-';
                 remarksCell.innerHTML = '<span>-</span>';
             }
         }
@@ -1032,7 +1129,7 @@ try {
         
         // Add event listeners for auto-save
         document.addEventListener('DOMContentLoaded', function() {
-            const gradeInputs = document.querySelectorAll('.grade-input');
+            const gradeInputs = document.querySelectorAll('.grade-input, .completion-input');
             gradeInputs.forEach(input => {
                 input.addEventListener('input', scheduleAutoSave);
             });
@@ -1040,13 +1137,14 @@ try {
         
         // Form validation
         document.getElementById('gradesForm')?.addEventListener('submit', function(e) {
-            const gradeInputs = document.querySelectorAll('.grade-input');
+            const finalInputs = document.querySelectorAll('.grade-input');
+            const completionInputs = document.querySelectorAll('.completion-input');
             let hasInvalidGrades = false;
             
-            gradeInputs.forEach(input => {
+            finalInputs.forEach(input => {
                 const value = input.value.toUpperCase().trim();
                 
-                // Check if it's INC or DRP
+                // Check if it's INC or DRP or empty
                 if (value === 'INC' || value === 'DRP' || value === '') {
                     input.style.borderColor = '#d1d5db';
                     return;
@@ -1062,9 +1160,24 @@ try {
                 }
             });
             
+            completionInputs.forEach(input => {
+                if (input.disabled || !input.value.trim()) {
+                    input.style.borderColor = '#ffc107';
+                    return;
+                }
+                
+                const value = parseFloat(input.value.trim());
+                if (isNaN(value) || value < 1.00 || value > 5.00) {
+                    hasInvalidGrades = true;
+                    input.style.borderColor = '#dc3545';
+                } else {
+                    input.style.borderColor = '#ffc107';
+                }
+            });
+            
             if (hasInvalidGrades) {
                 e.preventDefault();
-                alert('Please ensure all grades are between 1.00 and 5.00, or enter INC/DRP');
+                alert('Please ensure all grades are between 1.00 and 5.00, or enter INC/DRP for final grades');
                 return false;
             }
         });

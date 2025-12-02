@@ -55,6 +55,7 @@ try {
                 s.credits,
                 g.midterm_grade,
                 g.final_grade,
+                g.completion_grade,
                 g.overall_grade,
                 g.letter_grade,
                 g.remarks,
@@ -83,13 +84,20 @@ try {
     $dropped_subjects = 0;
     
     foreach ($grades as $grade) {
-        // Check if grade is INC or DRP
-        if (strtoupper($grade['letter_grade'] ?? '') === 'INC') {
+        // Check if final grade is INC or DRP
+        $final_grade_upper = strtoupper($grade['final_grade'] ?? '');
+        
+        if ($final_grade_upper === 'INC') {
             $incomplete_subjects++;
-            continue; // Don't include INC in GPA calculation
+            // If there's a completion grade, use it in GPA calculation
+            if ($grade['completion_grade'] && is_numeric($grade['completion_grade']) && $grade['credits']) {
+                $total_grade_points += ($grade['completion_grade'] * $grade['credits']);
+                $total_credits += $grade['credits'];
+            }
+            continue;
         }
         
-        if (strtoupper($grade['letter_grade'] ?? '') === 'DRP') {
+        if ($final_grade_upper === 'DRP') {
             $dropped_subjects++;
             continue; // Don't include DRP in GPA calculation
         }
@@ -124,10 +132,11 @@ foreach ($grades as $grade) {
 }
 
 // Helper function to get grade color class
-function getGradeClass($letter_grade, $overall_grade = null) {
+function getGradeClass($final_grade, $overall_grade = null) {
     // Check for INC or DRP first
-    if (strtoupper($letter_grade ?? '') === 'INC') return 'grade-incomplete';
-    if (strtoupper($letter_grade ?? '') === 'DRP') return 'grade-dropped';
+    $final_grade_upper = strtoupper($final_grade ?? '');
+    if ($final_grade_upper === 'INC') return 'grade-incomplete';
+    if ($final_grade_upper === 'DRP') return 'grade-dropped';
     
     // If no numeric grade, return default
     if (!$overall_grade || !is_numeric($overall_grade)) return 'grade-pending';
@@ -168,50 +177,61 @@ function getGradeClass($letter_grade, $overall_grade = null) {
             color: #dc3545;
         }
 
-        .grade-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.9em;
-            margin-bottom: 5px;
+        /* INC Grade Display Styles - Matching Image */
+        .grade-incomplete-display {
+            text-align: center;
+            padding: 8px 12px;
         }
 
-        .grade-status-badge.incomplete {
-            color: #856404;
-        }
-
-        .grade-status-badge.incomplete i {
-            color: #ffc107;
-        }
-
-        .grade-status-badge.dropped {
-            color: #721c24;
-        }
-
-        .grade-status-badge.dropped i {
+        .grade-incomplete-label {
             color: #dc3545;
+            font-weight: 700;
+            font-size: 1.1em;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
         }
 
-        .grade-status-message {
-            font-size: 0.85em;
+        .grade-completion-info {
             color: #6c757d;
-            font-style: italic;
-            margin-top: 5px;
+            font-size: 0.9em;
+            font-weight: 500;
         }
 
+        .grade-completion-value {
+            color: #007bff;
+            font-weight: 700;
+            font-size: 1em;
+        }
+
+        /* DRP Grade Display */
+        .grade-dropped-display {
+            text-align: center;
+            padding: 8px 12px;
+        }
+
+        .grade-dropped-label {
+            color: #dc3545;
+            font-weight: 700;
+            font-size: 1.1em;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .grade-dropped-info {
+            color: #6c757d;
+            font-size: 0.85em;
+            font-style: italic;
+        }
+
+        /* Update existing grade styles */
         .grade-incomplete {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffc107;
+            background-color: #fff;
+            border: none;
         }
 
         .grade-dropped {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 2px solid #dc3545;
+            background-color: #fff;
+            border: none;
         }
     </style>
 </head>
@@ -393,23 +413,31 @@ function getGradeClass($letter_grade, $overall_grade = null) {
                     </div>
                     <div class="grade-info">
                         <?php 
-                        // Check if grade is INC or DRP
-                        $isIncomplete = (strtoupper($grade['letter_grade'] ?? '') === 'INC');
-                        $isDropped = (strtoupper($grade['letter_grade'] ?? '') === 'DRP');
+                        // Check if final grade is INC or DRP
+                        $final_grade_upper = strtoupper($grade['final_grade'] ?? '');
+                        $isIncomplete = ($final_grade_upper === 'INC');
+                        $isDropped = ($final_grade_upper === 'DRP');
                         
                         if ($isIncomplete): ?>
-                            <div class="grade-status-badge incomplete">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>INCOMPLETE</span>
+                            <div class="grade-incomplete-display">
+                                <div class="grade-incomplete-label">Inc.</div>
+                                <?php if (!empty($grade['completion_grade']) && is_numeric($grade['completion_grade'])): ?>
+                                    <div class="grade-completion-info">
+                                        Completion: <span class="grade-completion-value"><?php echo number_format($grade['completion_grade'], 1); ?></span>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="grade-completion-info">
+                                        Awaiting completion
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php elseif ($isDropped): ?>
-                            <div class="grade-status-badge dropped">
-                                <i class="fas fa-times-circle"></i>
-                                <span>DROPPED</span>
+                            <div class="grade-dropped-display">
+                                <div class="grade-dropped-label">DRP</div>
+                                <div class="grade-dropped-info">Dropped</div>
                             </div>
-
                         <?php elseif (!empty($grade['overall_grade']) && is_numeric($grade['overall_grade'])): ?>
-                            <div class="grade-value <?php echo getGradeClass($grade['letter_grade'], $grade['overall_grade']); ?>">
+                            <div class="grade-value <?php echo getGradeClass($grade['final_grade'], $grade['overall_grade']); ?>">
                                 <?php echo number_format($grade['overall_grade'], 2); ?>
                             </div>
                             <?php if (!empty($grade['letter_grade'])): ?>

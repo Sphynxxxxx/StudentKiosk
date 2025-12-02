@@ -5,3 +5,9 @@ composer require phpmailer/phpmailer
 NEED TO DO
 
 artm nvdc zins klas
+
+
+
+SQL UPDATE
+
+ALTER TABLE grades ADD COLUMN completion_grade DECIMAL(3,2) NULL AFTER final_grade;

@@ -517,7 +517,7 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
         
         .modal-header {
             padding: 25px 30px;
-            background: linear-gradient(135deg, #007bff, #0056b3);
+            background: #1e3a8a;
             color: white;
             border-radius: 12px 12px 0 0;
             display: flex;
@@ -601,11 +601,11 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
         }
         
         .grade-excellent { color: #28a745; font-weight: 600; }
-        .grade-very-good { color: #20c997; font-weight: 600; }
-        .grade-good { color: #17a2b8; font-weight: 600; }
-        .grade-satisfactory { color: #ffc107; font-weight: 600; }
-        .grade-passed { color: #fd7e14; font-weight: 600; }
+        .grade-very-satisfactory { color: #20c997; font-weight: 600; }
+        .grade-satisfactory { color: #17a2b8; font-weight: 600; }
+        .grade-fair { color: #ffc107; font-weight: 600; }
         .grade-failed { color: #dc3545; font-weight: 600; }
+        .grade-incomplete { color: #fd7e14; font-weight: 600; }
         
         .loading {
             text-align: center;
@@ -983,11 +983,6 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                             <h3 class="card-title">
                                 <i class="fas fa-trophy"></i> Student Rankings - <?php echo htmlspecialchars($current_program['program_name']); ?>
                             </h3>
-                            <!--<div style="display: flex; gap: 10px;">
-                                <button type="button" class="btn btn-outline" onclick="window.print()">
-                                    <i class="fas fa-print"></i> Print
-                                </button>
-                            </div>-->
                         </div>
 
                         <div class="card-content">
@@ -999,11 +994,11 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                                     <div class="stat-label">Total Students Ranked</div>
                                 </div>
                                 <div class="stat-card">
-                                    <div class="stat-value"><?php echo number_format($stats['average_gpa'], 2); ?></div>
+                                    <div class="stat-value"><?php echo number_format($stats['average_gpa'], 4); ?></div>
                                     <div class="stat-label">Average GPA</div>
                                 </div>
                                 <div class="stat-card">
-                                    <div class="stat-value"><?php echo number_format($stats['highest_gpa'], 2); ?></div>
+                                    <div class="stat-value"><?php echo number_format($stats['highest_gpa'], 4); ?></div>
                                     <div class="stat-label">Highest GPA</div>
                                 </div>
                                 <div class="stat-card dean">
@@ -1058,7 +1053,7 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                                                 </td>
                                                 <td><?php echo htmlspecialchars($student['year_level']); ?></td>
                                                 <td><?php echo htmlspecialchars($student['section_name'] ?? 'N/A'); ?></td>
-                                                <td class="gpa-cell"><?php echo number_format($student['gpa'], 2); ?></td>
+                                                <td class="gpa-cell"><?php echo number_format($student['gpa'], 4); ?></td>
                                                 <td><?php echo $student['passed_subjects']; ?>/<?php echo $student['total_subjects']; ?></td>
                                                 <td><?php echo $student['total_credits']; ?></td>
                                                 <td>
@@ -1177,10 +1172,8 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                                 <th>Section</th>
                                 <th>Faculty</th>
                                 <th>Credits</th>
-                                <th>Midterm</th>
                                 <th>Final</th>
                                 <th>Overall</th>
-                                <th>Letter</th>
                                 <th>Remarks</th>
                             </tr>
                         </thead>
@@ -1192,11 +1185,9 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                                     <td>${escapeHtml(grade.class_section_name)}</td>
                                     <td>${escapeHtml(grade.faculty_name)}</td>
                                     <td>${grade.credits}</td>
-                                    <td>${grade.midterm_grade ? parseFloat(grade.midterm_grade).toFixed(2) : '-'}</td>
-                                    <td>${grade.final_grade ? parseFloat(grade.final_grade).toFixed(2) : '-'}</td>
-                                    <td class="grade-${grade.remarks ? grade.remarks.toLowerCase().replace(' ', '-') : ''}">${grade.overall_grade ? parseFloat(grade.overall_grade).toFixed(2) : '-'}</td>
-                                    <td><strong>${grade.letter_grade || '-'}</strong></td>
-                                    <td><span class="grade-${grade.remarks ? grade.remarks.toLowerCase().replace(' ', '-') : ''}">${grade.remarks || '-'}</span></td>
+                                    <td>${grade.final_grade || '-'}</td>
+                                    <td class="grade-${grade.remarks ? grade.remarks.toLowerCase().replace(/ /g, '-') : ''}">${grade.overall_grade ? parseFloat(grade.overall_grade).toFixed(4) : '-'}</td>
+                                    <td><span class="grade-${grade.remarks ? grade.remarks.toLowerCase().replace(/ /g, '-') : ''}">${grade.remarks || '-'}</span></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -1240,9 +1231,6 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                     <button class="btn-compose" onclick="toggleComposeSection()">
                         <i class="fas fa-envelope"></i> Compose Message
                     </button>
-                    <!--<button class="btn btn-outline" onclick="printStudentProfile()">
-                        <i class="fas fa-print"></i> Print Profile
-                    </button>-->
                 </div>
                 
                 <!-- Compose Message Section -->
@@ -1266,10 +1254,14 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                                 <option value="">-- Select a template --</option>
                                 <option value="latin_honors">Latin Honors Qualification</option>
                                 <option value="congratulations">Congratulations Message</option>
+                                <option value="incomplete_warning">Incomplete Grade Warning</option>
                                 <option value="reminder">Grade Submission Reminder</option>
                                 <option value="custom">Custom Message</option>
                             </select>
                         </div>
+                        <input type="hidden" id="studentGPA" value="${summary.gpa ? parseFloat(summary.gpa).toFixed(4) : 'N/A'}">
+                        <input type="hidden" id="studentRank" value="${summary.rank || 'N/A'}">
+                        <input type="hidden" id="studentHonor" value="${summary.honor || 'N/A'}">
                         
                         <div class="form-group">
                             <label for="emailMessage">Message: <span style="color: red;">*</span></label>
@@ -1290,7 +1282,7 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
                 <h3 style="margin-bottom: 15px;"><i class="fas fa-chart-bar"></i> Academic Summary</h3>
                 <div class="summary-cards">
                     <div class="summary-card success">
-                        <div class="summary-value">${summary.gpa ? parseFloat(summary.gpa).toFixed(2) : 'N/A'}</div>
+                        <div class="summary-value">${summary.gpa ? parseFloat(summary.gpa).toFixed(4) : 'N/A'}</div>
                         <div class="summary-label">GPA</div>
                     </div>
                     <div class="summary-card">
@@ -1359,26 +1351,113 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
             }
         }
         
-        // Apply email template
+        // Apply email template with GPA
         function applyTemplate() {
             const template = document.getElementById('emailTemplate').value;
             const subjectField = document.getElementById('emailSubject');
             const messageField = document.getElementById('emailMessage');
             
+            // Get student data from hidden inputs
+            const gpa = document.getElementById('studentGPA')?.value || 'N/A';
+            const rank = document.getElementById('studentRank')?.value || 'N/A';
+            const honor = document.getElementById('studentHonor')?.value || 'N/A';
+            
             switch(template) {
                 case 'latin_honors':
                     subjectField.value = 'Congratulations! You Qualify for Latin Honors';
-                    messageField.value = 'Dear Student,\n\nWe are delighted to inform you that based on your outstanding academic performance, you have qualified for Latin Honors recognition! as [Rank]\n\nYour exceptional dedication, hard work, and consistent excellence throughout your academic journey have earned you this prestigious distinction. This achievement reflects not only your intellectual capabilities but also your commitment to academic excellence.\n\nYour current GPA places you among the top-performing students in your program. We encourage you to maintain this excellent performance as you continue your studies.\n\nPlease visit the Registrar\'s Office for more information about the Latin Honors recognition ceremony and requirements.\n\nOnce again, congratulations on this remarkable achievement!\n\nBest regards,\n[Your Name]\n[Your Position]\nIloilo State University of Science and Technology';
+                    messageField.value = `Dear Student,
+
+We are delighted to inform you that based on your outstanding academic performance, you have qualified for Latin Honors recognition!
+
+Your Achievement:
+• Rank: ${rank}
+• GPA (General Weighted Average): ${gpa}
+• Honor Status: ${honor}
+
+Your exceptional dedication, hard work, and consistent excellence throughout your academic journey have earned you this prestigious distinction. This achievement reflects not only your intellectual capabilities but also your commitment to academic excellence.
+
+Your current GPA places you among the top-performing students in your program. We encourage you to maintain this excellent performance as you continue your studies.
+
+Please visit the Registrar's Office for more information about the Latin Honors recognition ceremony and requirements.
+
+Once again, congratulations on this remarkable achievement!
+
+Best regards,
+[Your Name]
+[Your Position]
+Iloilo Science and Technology University`;
                     break;
                 
                 case 'congratulations':
                     subjectField.value = 'Congratulations on Your Academic Achievement!';
-                    messageField.value = 'Dear Student,\n\nCongratulations on your outstanding academic performance! Your dedication and hard work have truly paid off. Keep up the excellent work!\n\nBest regards,\n[Your Name]';
+                    messageField.value = `Dear Student,
+
+Congratulations on your outstanding academic performance!
+
+Your Current Standing:
+• GPA: ${gpa}
+• Honor Status: ${honor}
+
+Your dedication and hard work have truly paid off. Keep up the excellent work!
+
+Best regards,
+[Your Name]
+[Your Position]
+Iloilo Science and Technology University`;
+                    break;
+                
+                case 'incomplete_warning':
+                    subjectField.value = 'URGENT: Incomplete Grade Compliance Required';
+                    messageField.value = `Dear Student,
+
+This is an important notice regarding your academic status.
+
+Our records indicate that you have one or more INCOMPLETE (INC) grades that require immediate attention. According to university policy, all incomplete grades must be completed within the specified deadline to avoid academic penalties.
+
+Action Required:
+1. Review your incomplete subjects in your student portal
+2. Contact the respective faculty members to arrange completion of requirements
+3. Submit all pending requirements before the deadline
+4. Ensure all incomplete grades are resolved to maintain good academic standing
+
+Consequences of Non-Compliance:
+• Incomplete grades may be converted to FAILED (F) after the deadline
+• May affect your GPA and academic standing
+• May delay graduation or enrollment in advanced courses
+• May impact scholarship eligibility
+
+Current GPA: ${gpa}
+
+Please take immediate action to resolve your incomplete grades. If you need assistance or have questions about the completion process, please contact the Registrar's Office or your academic adviser.
+
+Important Deadlines:
+• Completion Period: [Insert Deadline]
+• Final Submission: [Insert Date]
+
+We encourage you to prioritize completing these requirements to maintain your academic progress and standing.
+
+For assistance, please contact:
+• Registrar's Office: [Contact Information]
+• Academic Adviser: [Contact Information]
+
+Best regards,
+[Your Name]
+[Your Position]
+Iloilo Science and Technology University`;
                     break;
                     
                 case 'reminder':
                     subjectField.value = 'Important: Academic Update';
-                    messageField.value = 'Dear Student,\n\nThis is a reminder regarding your academic requirements. Please ensure all necessary submissions are completed on time.\n\nBest regards,\n[Your Name]';
+                    messageField.value = `Dear Student,
+
+This is a reminder regarding your academic requirements. Please ensure all necessary submissions are completed on time.
+
+Current GPA: ${gpa}
+
+Best regards,
+[Your Name]
+[Your Position]
+Iloilo Science and Technology University`;
                     break;
                     
                 case 'custom':
@@ -1456,28 +1535,11 @@ function getStatistics($pdo, $academic_year_id, $program_id) {
             });
         }
         
-        // Print student profile
-        function printStudentProfile() {
-            const composeSection = document.getElementById('composeSection');
-            const actionButtons = document.querySelector('.action-buttons');
-            
-            // Hide compose section and action buttons for printing
-            if (composeSection) composeSection.style.display = 'none';
-            if (actionButtons) actionButtons.style.display = 'none';
-            
-            window.print();
-            
-            // Restore after printing
-            setTimeout(() => {
-                if (actionButtons) actionButtons.style.display = 'flex';
-            }, 100);
-        }
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Ctrl+P to print
-            if (e.ctrlKey && e.key === 'p') {
-                e.preventDefault();
-                window.print();
+            // Esc to close modal
+            if (e.key === 'Escape') {
+                closeModal();
             }
         });
     </script>
