@@ -62,7 +62,6 @@ try {
             subj.subject_name,
             subj.credits,
             cs.section_name as class_section_name,
-            g.midterm_grade,
             g.final_grade,
             g.overall_grade,
             g.letter_grade,
@@ -90,7 +89,7 @@ try {
         unset($grade['faculty_last_name']);
     }
     
-    // Calculate summary statistics
+    // Calculate summary statistics - MATCHING RANKINGS CALCULATION
     $total_subjects = 0;
     $passed_subjects = 0;
     $failed_subjects = 0;
@@ -102,11 +101,12 @@ try {
         $total_subjects++;
         $total_credits += $grade['credits'];
         
-        if ($grade['overall_grade'] !== null) {
+        // Only count grades where overall_grade is NOT NULL (matching rankings query)
+        if ($grade['overall_grade'] !== null && $grade['overall_grade'] !== '') {
             $graded_subjects++;
-            $gpa_sum += $grade['overall_grade'];
+            $gpa_sum += (float)$grade['overall_grade'];
             
-            if ($grade['overall_grade'] <= 3.00) {
+            if ((float)$grade['overall_grade'] <= 3.00) {
                 $passed_subjects++;
             } else {
                 $failed_subjects++;
@@ -114,7 +114,38 @@ try {
         }
     }
     
+    // GPA calculation matching the rankings query: AVG(g.overall_grade)
     $gpa = $graded_subjects > 0 ? $gpa_sum / $graded_subjects : null;
+    
+    // Get rank from rankings (if available)
+    $rank = null;
+    if ($gpa !== null && $graded_subjects >= 3) {
+        // Get student's rank from the program
+        $rank_stmt = $pdo->prepare("
+            SELECT COUNT(*) + 1 as rank
+            FROM (
+                SELECT 
+                    u.id,
+                    AVG(g.overall_grade) as student_gpa
+                FROM users u
+                INNER JOIN student_profiles sp ON u.id = sp.user_id
+                INNER JOIN enrollments e ON u.id = e.student_id
+                INNER JOIN class_sections cs ON e.class_section_id = cs.id
+                INNER JOIN grades g ON e.id = g.enrollment_id
+                WHERE u.role = 'student'
+                  AND u.status = 'active'
+                  AND cs.academic_year_id = ?
+                  AND e.status = 'enrolled'
+                  AND g.overall_grade IS NOT NULL
+                  AND sp.program_id = (SELECT program_id FROM student_profiles WHERE user_id = ?)
+                GROUP BY u.id
+                HAVING COUNT(DISTINCT e.id) >= 3 AND AVG(g.overall_grade) < ?
+            ) ranked_students
+        ");
+        $rank_stmt->execute([$academic_year_id, $student_id, $gpa]);
+        $rank_result = $rank_stmt->fetch(PDO::FETCH_ASSOC);
+        $rank = $rank_result ? $rank_result['rank'] : null;
+    }
     
     // Determine honor status
     $honor = '-';
@@ -128,11 +159,13 @@ try {
     
     $summary = [
         'gpa' => $gpa,
+        'rank' => $rank,
         'total_subjects' => $total_subjects,
         'passed_subjects' => $passed_subjects,
         'failed_subjects' => $failed_subjects,
         'total_credits' => $total_credits,
-        'honor' => $honor
+        'honor' => $honor,
+        'graded_subjects' => $graded_subjects
     ];
     
     // Return response
