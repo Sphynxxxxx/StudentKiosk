@@ -40,13 +40,14 @@ $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
 
 try {
-    // Build query with filters - Updated to match your database schema
+    // Build query with filters - Updated to include supporting_document
     $query = "
         SELECT 
             ga.id,
             ga.grade_id,
             ga.student_id,
             ga.reason,
+            ga.supporting_document,
             ga.status,
             ga.admin_remarks,
             ga.submitted_at,
@@ -316,7 +317,7 @@ try {
 
         .modal-content {
             background: white;
-            max-width: 800px;
+            max-width: 900px;
             margin: 50px auto;
             border-radius: 10px;
             padding: 30px;
@@ -357,6 +358,10 @@ try {
             padding: 15px;
             background: #f8f9fa;
             border-radius: 5px;
+        }
+
+        .detail-item.full-width {
+            grid-column: 1 / -1;
         }
 
         .detail-label {
@@ -424,6 +429,132 @@ try {
             font-size: 4em;
             margin-bottom: 20px;
             color: #dee2e6;
+        }
+
+        /* File attachment styles */
+        .attachment-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .attachment-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .attachment-content {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .no-attachment {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .document-preview {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+        }
+
+        .document-icon {
+            font-size: 3em;
+            color: #3498db;
+        }
+
+        .document-icon.pdf { color: #dc3545; }
+        .document-icon.doc { color: #2b579a; }
+        .document-icon.image { color: #28a745; }
+
+        .document-info {
+            flex: 1;
+        }
+
+        .document-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .document-meta {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-download, .btn-preview {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+
+        .btn-download {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: #218838;
+        }
+
+        .btn-preview {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-preview:hover {
+            background: #2980b9;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }
+
+        .document-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+            background: #e3f2fd;
+            color: #1976d2;
         }
     </style>
 </head>
@@ -526,6 +657,7 @@ try {
                                 <th>Student</th>
                                 <th>Subject</th>
                                 <th>Current Grade</th>
+                                <th>Attachment</th>
                                 <th>Status</th>
                                 <th>Date Submitted</th>
                                 <th>Actions</th>
@@ -553,6 +685,15 @@ try {
                                         (<?php echo htmlspecialchars($appeal['letter_grade']); ?>)
                                     <?php else: ?>
                                         <span style="color: #6c757d;">No grade</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($appeal['supporting_document']): ?>
+                                        <span class="document-badge">
+                                            <i class="fas fa-paperclip"></i> Has File
+                                        </span>
+                                    <?php else: ?>
+                                        <span style="color: #6c757d; font-size: 0.85em;">No file</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -593,9 +734,89 @@ try {
     <script>
         const appeals = <?php echo json_encode($appeals); ?>;
         
+        function getFileExtension(filename) {
+            if (!filename) return '';
+            return filename.split('.').pop().toLowerCase();
+        }
+        
+        function getFileIcon(extension) {
+            const icons = {
+                'pdf': '<i class="fas fa-file-pdf document-icon pdf"></i>',
+                'doc': '<i class="fas fa-file-word document-icon doc"></i>',
+                'docx': '<i class="fas fa-file-word document-icon doc"></i>',
+                'jpg': '<i class="fas fa-file-image document-icon image"></i>',
+                'jpeg': '<i class="fas fa-file-image document-icon image"></i>',
+                'png': '<i class="fas fa-file-image document-icon image"></i>'
+            };
+            return icons[extension] || '<i class="fas fa-file-alt document-icon"></i>';
+        }
+        
+        function isImage(extension) {
+            return ['jpg', 'jpeg', 'png', 'gif'].includes(extension);
+        }
+        
+        function getFileName(filepath) {
+            if (!filepath) return '';
+            return filepath.split('/').pop();
+        }
+        
         function viewAppeal(appealId) {
             const appeal = appeals.find(a => a.id == appealId);
             if (!appeal) return;
+            
+            const fileExtension = getFileExtension(appeal.supporting_document);
+            const isImageFile = isImage(fileExtension);
+            const fileName = getFileName(appeal.supporting_document);
+            
+            let attachmentHTML = '';
+            if (appeal.supporting_document) {
+                attachmentHTML = `
+                    <div class="attachment-section">
+                        <div class="attachment-header">
+                            <i class="fas fa-paperclip"></i>
+                            Supporting Document
+                        </div>
+                        <div class="attachment-content">
+                            <div class="document-preview">
+                                ${getFileIcon(fileExtension)}
+                                <div class="document-info">
+                                    <div class="document-name">${fileName}</div>
+                                    <div class="document-meta">
+                                        ${fileExtension.toUpperCase()} File
+                                    </div>
+                                </div>
+                                <div class="document-actions">
+                                    <a href="../${appeal.supporting_document}" target="_blank" class="btn-preview">
+                                        <i class="fas fa-external-link-alt"></i> Open
+                                    </a>
+                                    <a href="../${appeal.supporting_document}" download class="btn-download">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                            ${isImageFile ? `
+                                <div class="image-preview">
+                                    <img src="../${appeal.supporting_document}" alt="Supporting Document">
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                attachmentHTML = `
+                    <div class="attachment-section">
+                        <div class="attachment-header">
+                            <i class="fas fa-paperclip"></i>
+                            Supporting Document
+                        </div>
+                        <div class="attachment-content">
+                            <div class="no-attachment">
+                                <i class="fas fa-file-slash"></i> No supporting document attached
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             
             const modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = `
@@ -640,25 +861,39 @@ try {
                     </div>
                 </div>
                 
-                <div class="detail-item" style="margin-bottom: 20px;">
+                <div class="detail-item full-width" style="margin-bottom: 20px;">
                     <div class="detail-label">Reason for Appeal</div>
                     <div class="detail-value">${appeal.reason || 'N/A'}</div>
                 </div>
                 
-                <div class="detail-item" style="margin-bottom: 20px;">
+                ${attachmentHTML}
+                
+                <div class="detail-item full-width" style="margin: 20px 0;">
                     <div class="detail-label">Date Submitted</div>
-                    <div class="detail-value">${new Date(appeal.submitted_at).toLocaleDateString()}</div>
+                    <div class="detail-value">${new Date(appeal.submitted_at).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}</div>
                 </div>
                 
                 ${appeal.reviewed_at ? `
-                <div class="detail-item" style="margin-bottom: 20px;">
+                <div class="detail-item full-width" style="margin-bottom: 20px;">
                     <div class="detail-label">Reviewed By</div>
-                    <div class="detail-value">Administrator on ${new Date(appeal.reviewed_at).toLocaleDateString()}</div>
+                    <div class="detail-value">Administrator on ${new Date(appeal.reviewed_at).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}</div>
                 </div>
                 ` : ''}
                 
                 ${appeal.admin_remarks ? `
-                <div class="detail-item" style="margin-bottom: 20px;">
+                <div class="detail-item full-width" style="margin-bottom: 20px;">
                     <div class="detail-label">Admin Remarks</div>
                     <div class="detail-value">${appeal.admin_remarks}</div>
                 </div>
