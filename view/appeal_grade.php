@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_appeal'])) {
     try {
         $grade_id = (int)$_POST['grade_id'];
         $reason = trim($_POST['reason']);
+        $uploaded_file = null;
         
         // Verify that this grade belongs to the logged-in student
         $verify_stmt = $pdo->prepare("
@@ -44,19 +45,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_appeal'])) {
             throw new Exception('You have already submitted an appeal for this grade.');
         }
         
+        // Handle file upload
+        if (isset($_FILES['supporting_document']) && $_FILES['supporting_document']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['supporting_document'];
+            $allowed_types = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/jpg'];
+            $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+            $max_file_size = 5 * 1024 * 1024; // 5MB
+            
+            // Validate file type
+            $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            if (!in_array($mime_type, $allowed_types) || !in_array($file_extension, $allowed_extensions)) {
+                throw new Exception('Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG files are allowed.');
+            }
+            
+            // Validate file size
+            if ($file['size'] > $max_file_size) {
+                throw new Exception('File size must not exceed 5MB.');
+            }
+            
+            // Create upload directory if it doesn't exist
+            $upload_dir = '../uploads/grade_appeals/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            // Generate unique filename
+            $file_name = 'appeal_' . $_SESSION['student_id'] . '_' . $grade_id . '_' . time() . '.' . $file_extension;
+            $upload_path = $upload_dir . $file_name;
+            
+            // Move uploaded file
+            if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
+                throw new Exception('Failed to upload file. Please try again.');
+            }
+            
+            $uploaded_file = 'uploads/grade_appeals/' . $file_name;
+        }
+        
         // Insert appeal
         $stmt = $pdo->prepare("
-            INSERT INTO grade_appeals (grade_id, student_id, reason, status, submitted_at)
-            VALUES (?, ?, ?, 'pending', NOW())
+            INSERT INTO grade_appeals (grade_id, student_id, reason, supporting_document, status, submitted_at)
+            VALUES (?, ?, ?, ?, 'pending', NOW())
         ");
-        $stmt->execute([$grade_id, $_SESSION['student_id'], $reason]);
+        $stmt->execute([$grade_id, $_SESSION['student_id'], $reason, $uploaded_file]);
         
         // Log the activity
         $log_stmt = $pdo->prepare("
             INSERT INTO user_logs (user_id, activity_type, description, ip_address, created_at)
             VALUES (?, 'grade_appeal_submitted', ?, ?, NOW())
         ");
-        $log_description = "Submitted grade appeal for grade ID $grade_id";
+        $log_description = "Submitted grade appeal for grade ID $grade_id" . ($uploaded_file ? " with supporting document" : "");
         $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
         $log_stmt->execute([$_SESSION['student_id'], $log_description, $ip_address]);
         
@@ -65,6 +106,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_appeal'])) {
     } catch (Exception $e) {
         error_log("Grade appeal error: " . $e->getMessage());
         $error_message = $e->getMessage();
+        
+        // Clean up uploaded file if appeal insertion failed
+        if (isset($uploaded_file) && file_exists('../' . $uploaded_file)) {
+            unlink('../' . $uploaded_file);
+        }
     }
 }
 
@@ -127,6 +173,7 @@ try {
             ga.id,
             ga.grade_id,
             ga.reason,
+            ga.supporting_document,
             ga.status,
             ga.submitted_at,
             ga.reviewed_at,
@@ -425,6 +472,8 @@ function getGradeClass($overall_grade) {
             border-radius: 12px;
             padding: 35px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -472,6 +521,7 @@ function getGradeClass($overall_grade) {
             border-radius: 6px;
             font-size: 0.95em;
             transition: border-color 0.3s;
+            box-sizing: border-box;
         }
 
         .form-control:focus {
@@ -483,6 +533,101 @@ function getGradeClass($overall_grade) {
             min-height: 140px;
             resize: vertical;
             font-family: inherit;
+        }
+
+        .file-upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: #3498db;
+            background: #e7f3ff;
+        }
+
+        .file-upload-area.drag-over {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .file-upload-icon {
+            font-size: 3em;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        .file-upload-text {
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .file-upload-hint {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        #supporting_document {
+            display: none;
+        }
+
+        .file-preview {
+            margin-top: 15px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .file-preview.show {
+            display: flex;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-icon {
+            font-size: 1.5em;
+            color: #3498db;
+        }
+
+        .file-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .file-size {
+            font-size: 0.85em;
+            color: #6c757d;
+        }
+
+        .remove-file-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .remove-file-btn:hover {
+            background: #c82333;
         }
 
         .btn-submit {
@@ -505,6 +650,19 @@ function getGradeClass($overall_grade) {
 
         .required {
             color: #dc3545;
+        }
+
+        .document-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+
+        .document-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -660,7 +818,11 @@ function getGradeClass($overall_grade) {
                                 Appeal: <?php echo ucfirst($grade['appeal_status']); ?>
                             </span>
                         <?php else: ?>
-                            <button class="btn-appeal" onclick="openAppealModal(<?php echo $grade['grade_id']; ?>, '<?php echo htmlspecialchars($grade['course_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($grade['subject_name'], ENT_QUOTES); ?>')">
+                            <button class="btn-appeal" 
+                                    data-grade-id="<?php echo $grade['grade_id']; ?>"
+                                    data-course-code="<?php echo htmlspecialchars($grade['course_code']); ?>"
+                                    data-subject-name="<?php echo htmlspecialchars($grade['subject_name']); ?>"
+                                    onclick="openAppealModal(this)">
                                 <i class="fas fa-flag"></i> Submit Appeal
                             </button>
                         <?php endif; ?>
@@ -691,6 +853,7 @@ function getGradeClass($overall_grade) {
                         <th>Subject</th>
                         <th>Grade</th>
                         <th>Reason</th>
+                        <th>Document</th>
                         <th>Status</th>
                         <th>Submitted</th>
                         <th>Admin Remarks</th>
@@ -708,6 +871,15 @@ function getGradeClass($overall_grade) {
                             (<?php echo htmlspecialchars($appeal['letter_grade']); ?>)
                         </td>
                         <td><?php echo htmlspecialchars($appeal['reason']); ?></td>
+                        <td>
+                            <?php if ($appeal['supporting_document']): ?>
+                                <a href="../<?php echo htmlspecialchars($appeal['supporting_document']); ?>" target="_blank" class="document-link">
+                                    <i class="fas fa-file-alt"></i> View Document
+                                </a>
+                            <?php else: ?>
+                                <span style="color: #6c757d;">No document</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <span class="status-badge status-<?php echo $appeal['status']; ?>">
                                 <?php echo ucfirst($appeal['status']); ?>
@@ -730,7 +902,7 @@ function getGradeClass($overall_grade) {
                 <h2>Submit Grade Appeal</h2>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
-            <form method="POST" action="">
+            <form method="POST" action="" enctype="multipart/form-data" id="appealForm">
                 <input type="hidden" name="submit_appeal" value="1">
                 <input type="hidden" name="grade_id" id="modal_grade_id">
                 
@@ -745,9 +917,40 @@ function getGradeClass($overall_grade) {
                               placeholder="Explain why you are appealing this grade. Be specific about any errors you believe were made in the calculation or recording of your grade."></textarea>
                 </div>
 
+                <div class="form-group">
+                    <label>Supporting Document (Optional)</label>
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('supporting_document').click()">
+                        <div class="file-upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div class="file-upload-text">
+                            Click to upload or drag and drop
+                        </div>
+                        <div class="file-upload-hint">
+                            PDF, DOC, DOCX, JPG, PNG (Max 5MB)
+                        </div>
+                    </div>
+                    <input type="file" name="supporting_document" id="supporting_document" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                    
+                    <div class="file-preview" id="filePreview">
+                        <div class="file-info">
+                            <div class="file-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="file-details">
+                                <div class="file-name" id="fileName"></div>
+                                <div class="file-size" id="fileSize"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="remove-file-btn" onclick="removeFile()">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
+                </div>
+
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
-                    <small>Your appeal will be reviewed by administrators and faculty. Please provide clear and specific reasons for your appeal.</small>
+                    <small>Your appeal will be reviewed by administrators and faculty. Please provide clear and specific reasons for your appeal. You may optionally attach supporting documents such as scanned test papers, email communications, or other relevant evidence.</small>
                 </div>
 
                 <button type="submit" class="btn-submit">
@@ -771,15 +974,27 @@ function getGradeClass($overall_grade) {
             }
         });
 
-        // Modal functions
-        function openAppealModal(gradeId, courseCode, subjectName) {
+        // Modal functions - UPDATED TO FIX SUBJECT DISPLAY
+        function openAppealModal(button) {
+            const gradeId = button.getAttribute('data-grade-id');
+            const courseCode = button.getAttribute('data-course-code');
+            const subjectName = button.getAttribute('data-subject-name');
+            
             document.getElementById('modal_grade_id').value = gradeId;
             document.getElementById('modal_subject').value = courseCode + ' - ' + subjectName;
             document.getElementById('appealModal').style.display = 'block';
+            
+            // Reset form and hide file preview
+            const form = document.getElementById('appealForm');
+            const reasonField = form.querySelector('textarea[name="reason"]');
+            reasonField.value = '';
+            document.getElementById('filePreview').classList.remove('show');
         }
 
         function closeModal() {
             document.getElementById('appealModal').style.display = 'none';
+            document.getElementById('appealForm').reset();
+            document.getElementById('filePreview').classList.remove('show');
         }
 
         window.onclick = function(event) {
@@ -787,6 +1002,93 @@ function getGradeClass($overall_grade) {
             if (event.target == modal) {
                 closeModal();
             }
+        }
+
+        // File upload handling
+        const fileInput = document.getElementById('supporting_document');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const filePreview = document.getElementById('filePreview');
+
+        fileInput.addEventListener('change', function(e) {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop functionality
+        fileUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.add('drag-over');
+        });
+
+        fileUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+        });
+
+        fileUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+
+            // Validate file type
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+            const allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                alert('Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG files are allowed.');
+                fileInput.value = '';
+                return;
+            }
+
+            // Validate file size (5MB)
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert('File size must not exceed 5MB.');
+                fileInput.value = '';
+                return;
+            }
+
+            // Show file preview
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            filePreview.classList.add('show');
+
+            // Update file icon based on type
+            const fileIcon = filePreview.querySelector('.file-icon i');
+            if (file.type.includes('pdf')) {
+                fileIcon.className = 'fas fa-file-pdf';
+            } else if (file.type.includes('word') || file.type.includes('document')) {
+                fileIcon.className = 'fas fa-file-word';
+            } else if (file.type.includes('image')) {
+                fileIcon.className = 'fas fa-file-image';
+            } else {
+                fileIcon.className = 'fas fa-file-alt';
+            }
+        }
+
+        function removeFile() {
+            fileInput.value = '';
+            filePreview.classList.remove('show');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
     </script>
 </body>
