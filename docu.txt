@@ -16,7 +16,7 @@ ADD COLUMN is_finalized TINYINT(1) DEFAULT 0,
 ADD COLUMN finalized_at DATETIME NULL,
 ADD COLUMN finalized_by INT NULL;
 
-
+ALTER TABLE grade_appeals ADD COLUMN supporting_document VARCHAR(255) DEFAULT NULL AFTER reason;
 
 
 Rankings query: Only counts subjects with overall_grade IS NOT NULL
