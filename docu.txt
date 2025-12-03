@@ -11,3 +11,19 @@ artm nvdc zins klas
 SQL UPDATE
 
 ALTER TABLE grades ADD COLUMN completion_grade DECIMAL(3,2) NULL AFTER final_grade;
+ALTER TABLE grades 
+ADD COLUMN is_finalized TINYINT(1) DEFAULT 0,
+ADD COLUMN finalized_at DATETIME NULL,
+ADD COLUMN finalized_by INT NULL;
+
+
+
+
+Rankings query: Only counts subjects with overall_grade IS NOT NULL
+
+If only 2 subjects have grades: (1.5 + 1.5) / 2 = 1.5000 ✓
+
+
+Academic Summary (modal): Counts all 3 enrolled subjects
+
+If 3 subjects have grades: (1.5 + 1.5 + 2.0) / 3 = 1.6667 ✓
